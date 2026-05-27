@@ -4,15 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LogIn, Loader2, AlertCircle } from "lucide-react";
-import { login } from "@/lib/api";
-import { useLeadOpsAuth } from "@/lib/LeadOpsAuthContext";
+import { useAuth } from "@/lib/LeadOpsAuthContext";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn } = useLeadOpsAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -21,8 +20,7 @@ export default function SignIn() {
     setLoading(true);
 
     try {
-      const data = await login(email, password);
-      signIn(data.token, data.user);
+      await login(email, password);
       navigate("/");
     } catch (err) {
       setError(err.message || "Login failed. Check your credentials.");

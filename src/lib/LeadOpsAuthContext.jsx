@@ -1,45 +1,49 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { apiClient } from '../api/apiClient';
 
-const LeadOpsAuthContext = createContext(null);
+const AuthContext = createContext(null);
 
-export function LeadOpsAuthProvider({ children }) {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("leadops_token");
-    const savedUser = localStorage.getItem("leadops_user");
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      if (!apiClient.getToken()) { setLoading(false); return; }
+      try {
+        const me = await apiClient.me();
+        if (!cancelled) setUser(me.user);
+      } catch {
+        apiClient.setToken(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const signIn = (tokenValue, userData) => {
-    localStorage.setItem("leadops_token", tokenValue);
-    localStorage.setItem("leadops_user", JSON.stringify(userData));
-    setToken(tokenValue);
-    setUser(userData);
-  };
+  async function login(email, password) {
+    const res = await apiClient.login(email, password);
+    apiClient.setToken(res.token);
+    setUser(res.user);
+    return res.user;
+  }
 
-  const signOut = () => {
-    localStorage.removeItem("leadops_token");
-    localStorage.removeItem("leadops_user");
-    setToken(null);
+  function logout() {
+    apiClient.setToken(null);
     setUser(null);
-  };
+  }
 
   return (
-    <LeadOpsAuthContext.Provider value={{ user, token, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
-    </LeadOpsAuthContext.Provider>
+    </AuthContext.Provider>
   );
 }
 
-export function useLeadOpsAuth() {
-  const ctx = useContext(LeadOpsAuthContext);
-  if (!ctx) throw new Error("useLeadOpsAuth must be used within LeadOpsAuthProvider");
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
   return ctx;
 }

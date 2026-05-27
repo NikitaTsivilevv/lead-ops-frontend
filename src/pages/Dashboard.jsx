@@ -1,15 +1,15 @@
 import React from "react";
-import { useLeadOpsAuth } from "@/lib/LeadOpsAuthContext";
+import { useAuth } from "@/lib/LeadOpsAuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const { user, signOut } = useLeadOpsAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    signOut();
+    logout();
     navigate("/login");
   };
 
