@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { format, subDays, addDays } from 'date-fns';
 import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
-import AppHeader from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -158,8 +157,6 @@ export default function Pipeline() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <AppHeader />
-
       <div className="px-4 py-4">
         {/* Top bar */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
