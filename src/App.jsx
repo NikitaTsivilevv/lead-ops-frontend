@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import ScrollToTop from './components/ScrollToTop';
 import { AuthProvider, useAuth } from '@/lib/LeadOpsAuthContext';
-import SignIn from '@/pages/SignIn';
+import AuthGate from '@/pages/AuthGate';
 import Dashboard from '@/pages/Dashboard';
 
 function ProtectedRoute({ children }) {
@@ -19,29 +19,14 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  if (!user) return <Navigate to="/sign-in" replace />;
-  return children;
-}
-
-function PublicRoute({ children }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (user) return <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/" replace />;
   return children;
 }
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/sign-in" element={<PublicRoute><SignIn /></PublicRoute>} />
-    <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+    <Route path="/" element={<AuthGate />} />
+    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
