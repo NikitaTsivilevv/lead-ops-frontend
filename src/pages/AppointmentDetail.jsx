@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -134,6 +135,17 @@ export default function AppointmentDetail() {
   const [cdError, setCdError] = useState('');
   const [cdForbidden, setCdForbidden] = useState(false);
 
+  // Outcome panel state
+  const [ocOutcome, setOcOutcome] = useState('');
+  const [ocNoShowReason, setOcNoShowReason] = useState('');
+  const [ocSaleAmount, setOcSaleAmount] = useState('');
+  const [ocItemsSold, setOcItemsSold] = useState('');
+  const [ocMeetingNotes, setOcMeetingNotes] = useState('');
+  const [ocSalesNotes, setOcSalesNotes] = useState('');
+  const [ocNeedReschedule, setOcNeedReschedule] = useState(false);
+  const [ocSaving, setOcSaving] = useState(false);
+  const [ocError, setOcError] = useState('');
+
   const canEdit = user?.role !== 'client';
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
   const showClientDecision = ['admin', 'operations', 'client'].includes(user?.role);
@@ -148,6 +160,16 @@ export default function AppointmentDetail() {
       setQualValue(a.qualification && a.qualification !== 'pending' ? a.qualification : '');
       setQualNote(a.qualification_note || '');
       setCdCloser(a.assigned_closer || '');
+      // Outcome pre-population
+      if (a.outcome && a.outcome !== 'pending') {
+        setOcOutcome(a.outcome);
+        setOcNoShowReason(a.no_show_reason || '');
+        setOcSaleAmount(a.sale_amount != null ? String(a.sale_amount) : '');
+        setOcItemsSold(a.items_sold || '');
+        setOcMeetingNotes(a.meeting_notes || '');
+        setOcSalesNotes(a.sales_notes || '');
+        setOcNeedReschedule(!!a.need_reschedule);
+      }
       // confirmations may or may not be side-loaded
       setConfRows(buildConfRows(a.confirmations || []));
     } catch (err) {
@@ -240,6 +262,29 @@ export default function AppointmentDetail() {
     }
   };
 
+  // ── Outcome save ────────────────────────────────────────────────────────
+  const saveOutcome = async () => {
+    setOcError('');
+    setOcSaving(true);
+    try {
+      await apiClient.setOutcome(id, {
+        outcome: ocOutcome,
+        no_show_reason: ocOutcome === 'no_show' ? (ocNoShowReason || null) : null,
+        sale_amount: ocOutcome === 'sold' && ocSaleAmount !== '' ? Number(ocSaleAmount) : null,
+        items_sold: ocOutcome === 'sold' && ocItemsSold ? ocItemsSold : null,
+        meeting_notes: ocMeetingNotes || null,
+        sales_notes: ocSalesNotes || null,
+        need_reschedule: ocNeedReschedule,
+      });
+      await loadAppt();
+      toast.success('Outcome saved');
+    } catch (err) {
+      setOcError(err.message || 'Failed to save.');
+    } finally {
+      setOcSaving(false);
+    }
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -274,6 +319,9 @@ export default function AppointmentDetail() {
 
   const qualColor = QUAL_COLORS[appt.qualification?.toLowerCase()] || QUAL_COLORS.pending;
   const outcomeColor = OUTCOME_COLORS[appt.outcome?.toLowerCase()] || OUTCOME_COLORS.pending;
+  const showOutcome = ['admin', 'operations', 'client'].includes(user?.role);
+  const apptPast = appt.appointment_at ? new Date(appt.appointment_at) < new Date() : false;
+  const isRejected = appt.client_decision === 'rejected' || appt.client_decision === false;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -465,6 +513,122 @@ export default function AppointmentDetail() {
                       </p>
                     </div>
                   )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Outcome panel */}
+        {showOutcome && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-base">Outcome</CardTitle>
+                <Badge className={outcomeColor}>{appt.outcome || 'pending'}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!apptPast ? (
+                <p className="text-sm text-muted-foreground">Outcome can be set after the appointment time.</p>
+              ) : isRejected ? (
+                <p className="text-sm text-muted-foreground">Cannot set outcome on a rejected appointment.</p>
+              ) : (
+                <>
+                  {ocError && (
+                    <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{ocError}</div>
+                  )}
+                  <RadioGroup value={ocOutcome} onValueChange={setOcOutcome} className="flex flex-wrap gap-x-6 gap-y-2">
+                    {[
+                      { value: 'showed', label: 'Showed' },
+                      { value: 'no_show', label: 'No-show' },
+                      { value: 'sold', label: 'Sold' },
+                      { value: 'not_sold', label: 'Not sold' },
+                      { value: 'reschedule_needed', label: 'Reschedule needed' },
+                    ].map(opt => (
+                      <div key={opt.value} className="flex items-center gap-2">
+                        <RadioGroupItem value={opt.value} id={`oc-${opt.value}`} />
+                        <Label htmlFor={`oc-${opt.value}`} className="font-normal cursor-pointer">{opt.label}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+
+                  {ocOutcome === 'no_show' && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Reason <span className="text-destructive">*</span></Label>
+                      <Select value={ocNoShowReason} onValueChange={setOcNoShowReason}>
+                        <SelectTrigger className="w-56 h-9">
+                          <SelectValue placeholder="Select reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="homeowner">Homeowner</SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="operational">Operational mistake</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {ocOutcome === 'sold' && (
+                    <div className="flex flex-wrap gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-sm">Sale amount (USD) <span className="text-destructive">*</span></Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={ocSaleAmount}
+                          onChange={e => setOcSaleAmount(e.target.value)}
+                          className="w-40 h-9"
+                        />
+                      </div>
+                      <div className="space-y-1 flex-1 min-w-[180px]">
+                        <Label className="text-sm">Items sold <span className="text-destructive">*</span></Label>
+                        <Input
+                          placeholder="e.g. Solar, Kitchen"
+                          value={ocItemsSold}
+                          onChange={e => setOcItemsSold(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <Label className="text-sm">Meeting notes</Label>
+                    <Textarea
+                      placeholder="Optional"
+                      value={ocMeetingNotes}
+                      onChange={e => setOcMeetingNotes(e.target.value)}
+                      className="h-20 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Sales notes</Label>
+                    <Textarea
+                      placeholder="Optional"
+                      value={ocSalesNotes}
+                      onChange={e => setOcSalesNotes(e.target.value)}
+                      className="h-20 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="oc-reschedule"
+                      checked={ocNeedReschedule}
+                      onCheckedChange={v => setOcNeedReschedule(!!v)}
+                    />
+                    <Label htmlFor="oc-reschedule" className="font-normal cursor-pointer text-sm">Reschedule needed</Label>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    disabled={!ocOutcome || ocSaving}
+                    onClick={saveOutcome}
+                  >
+                    {ocSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
                 </>
               )}
             </CardContent>
