@@ -10,6 +10,7 @@ import AuthGate from '@/pages/AuthGate';
 import Intake from '@/pages/Intake';
 import Leads from '@/pages/Leads';
 import Confirmation from '@/pages/Confirmation';
+import AppointmentDetail from '@/pages/AppointmentDetail';
 
 const AppRoutes = () => (
   <Routes>
@@ -18,6 +19,7 @@ const AppRoutes = () => (
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
+    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
