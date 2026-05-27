@@ -192,6 +192,17 @@ export default function Pipeline() {
           <div className="flex items-center justify-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        ) : appointments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+            <p className="text-lg font-semibold text-foreground">No appointments in this range</p>
+            <p className="text-sm text-muted-foreground">Adjust the date filters above, or pick a different client.</p>
+            <Button variant="outline" size="sm" onClick={() => {
+              setFrom(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+              setTo(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
+            }}>
+              Reset range
+            </Button>
+          </div>
         ) : (
           <div className="overflow-x-auto pb-4">
             <div className="flex gap-3" style={{ width: 'max-content' }}>
