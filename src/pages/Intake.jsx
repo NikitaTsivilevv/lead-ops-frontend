@@ -52,6 +52,24 @@ function YesNo({ name, label, value, onChange }) {
   );
 }
 
+function explainLeadError(err) {
+  if (err.status === 403 && err.payload?.message?.includes('only callers')) {
+    return 'Only callers can submit leads. Sign in with a caller account.';
+  }
+  if (err.status === 400 && err.payload?.error === 'no_client_assigned') {
+    return 'Your account is not assigned to a client. Ask an admin to link your account to a client.';
+  }
+  if (err.status === 400 && err.payload?.error === 'validation_error') {
+    const first = err.payload?.issues?.[0];
+    if (first) {
+      const path = (first.path || []).join('.');
+      return `Validation: ${first.message}${path ? ` (${path})` : ''}`;
+    }
+    return 'Some fields are invalid. Please check the form.';
+  }
+  return err.message || 'Failed to submit lead.';
+}
+
 export default function Intake() {
   const [form, setForm] = useState(INITIAL);
   const [submitting, setSubmitting] = useState(false);

@@ -110,6 +110,28 @@ function buildConfRows(confirmations = []) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
+function explainOutcomeError(err) {
+  if (err.status === 400 && err.payload?.error === 'validation_error') {
+    const issues = err.payload?.issues || [];
+    const noShowReason = issues.find(i => (i.path || []).includes('no_show_reason'));
+    if (noShowReason) return 'Pick a no-show reason: homeowner, client, or operational mistake.';
+    const saleAmount = issues.find(i => (i.path || []).includes('sale_amount'));
+    if (saleAmount) return 'Enter the sale amount when outcome is Sold.';
+    const first = issues[0];
+    if (first) {
+      const path = (first.path || []).join('.');
+      return `Validation: ${first.message}${path ? ` (${path})` : ''}`;
+    }
+  }
+  return err.message || 'Failed to save outcome.';
+}
+
+function explainRedistError(err) {
+  if (err.status === 400 && err.payload?.error === 'same_client') return 'This appointment is already assigned to that client. Pick a different target.';
+  if (err.status === 400 && err.payload?.error === 'invalid_target_client') return 'The target client does not exist or is inactive.';
+  return err.message || 'Failed to redistribute.';
+}
+
 export default function AppointmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();

@@ -5,345 +5,217 @@ import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw, CalendarDays } from 'lucide-react';
 
-// ── helpers ────────────────────────────────────────────────────────────────
+const TZ = 'America/New_York';
 
 function toYMD(date) {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
-
 function addDays(ymd, n) {
-  const d = new Date(ymd + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return toYMD(d);
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return toYMD(dt);
 }
-
-function todayYMD() {
-  return toYMD(new Date());
-}
+function todayYMD() { return toYMD(new Date()); }
 
 function formatDayHeader(ymd) {
-  // Parse as local midnight
   const [y, m, d] = ymd.split('-').map(Number);
-  const date = new Date(y, m - 1, d, 12, 0, 0); // use noon to avoid DST edge
+  const dt = new Date(y, m - 1, d, 12, 0, 0);
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-  }).format(date);
+    timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  }).format(dt);
 }
-
-function formatTime(isoString) {
+function formatTime(iso) {
+  if (!iso) return '—';
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric', minute: '2-digit', hour12: true,
-  }).format(new Date(isoString));
+    timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(new Date(iso));
 }
-
-function getApptDate(isoString) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-  }).format(new Date(isoString)); // returns YYYY-MM-DD
+function getApptDate(iso) {
+  if (!iso) return null;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
 }
-
 function buildDayRange(from, to) {
+  if (!from || !to || from > to) return [];
   const days = [];
   let cur = from;
-  while (cur <= to) {
+  let safety = 0;
+  while (cur <= to && safety < 400) { // hard cap: 400 days
     days.push(cur);
     cur = addDays(cur, 1);
+    safety += 1;
   }
   return days;
 }
 
-// ── badge helpers ──────────────────────────────────────────────────────────
-
-const QUAL_COLORS = {
-  qualified: 'bg-green-100 text-green-800',
-  disqualified: 'bg-red-100 text-red-800',
-};
-const OUTCOME_COLORS = {
-  sold: 'bg-green-100 text-green-800',
-  'not sold': 'bg-red-100 text-red-800',
-  showed: 'bg-blue-100 text-blue-800',
-  'no-show': 'bg-gray-100 text-gray-700',
-  'reschedule needed': 'bg-orange-100 text-orange-800',
-};
-
-function clientDecisionLabel(val) {
-  if (val === null || val === undefined) return 'Pending';
-  if (val === true || val === 'accepted') return 'Accepted';
-  if (val === false || val === 'rejected') return 'Rejected';
-  if (val === 'auto-accepted') return 'Auto-accepted';
-  return String(val);
-}
-function clientDecisionColor(val) {
-  if (val === true || val === 'accepted') return 'bg-green-100 text-green-800';
-  if (val === false || val === 'rejected') return 'bg-red-100 text-red-800';
-  if (val === 'auto-accepted') return 'bg-blue-100 text-blue-800';
-  return 'bg-muted text-muted-foreground';
-}
-
-function SmallBadge({ label, className }) {
+function Badge({ children, className }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
-      {label}
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className || ''}`}>
+      {children}
     </span>
   );
 }
-
-// ── slot badge ─────────────────────────────────────────────────────────────
-
-function SlotBadge({ slot }) {
-  const color = slot.source === 'specific'
-    ? 'bg-amber-100 text-amber-800'
-    : 'bg-blue-100 text-blue-800';
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
-      {slot.start_time}–{slot.end_time} · cap {slot.capacity}
-    </span>
-  );
-}
-
-// ── CLIENT_OPTIONS TODO ────────────────────────────────────────────────────
-// TODO: replace with GET /api/clients when exposed
-const CLIENT_OPTIONS = [
-  { id: 1, name: 'Guy Green Constructions' },
-];
-
-// ── main component ─────────────────────────────────────────────────────────
 
 export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+  const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
-  const defaultFrom = todayYMD();
-  const defaultTo = addDays(defaultFrom, 13);
-
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState(defaultTo);
+  const [from, setFrom] = useState(todayYMD());
+  const [to, setTo] = useState(addDays(todayYMD(), 13));
   const [clientId, setClientId] = useState('1');
-
-  const [data, setData] = useState(null);
+  const [data, setData] = useState({ slots: [], appointments: [] });
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState('');
 
-  const isAdminOps = ['admin', 'operations'].includes(user?.role);
-  const showEditAvailability = ['admin', 'operations', 'client'].includes(user?.role);
-
-  const fetchData = useCallback(async (f, t, cid, isFirst = false) => {
+  const fetchData = useCallback(async (f, t, cid, isFirst) => {
     setError('');
-    if (isFirst) setLoading(true);
-    else setRefetching(true);
+    if (isFirst) setLoading(true); else setRefetching(true);
     try {
       const params = { from: f, to: t };
       if (isAdminOps && cid) params.client_id = Number(cid);
       const res = await apiClient.getCalendar(params);
-      setData(res);
+      setData({
+        slots: Array.isArray(res?.slots) ? res.slots : [],
+        appointments: Array.isArray(res?.appointments) ? res.appointments : [],
+      });
     } catch (err) {
       setError(err.message || 'Failed to load calendar.');
+      setData({ slots: [], appointments: [] });
     } finally {
-      if (isFirst) setLoading(false);
-      else setRefetching(false);
+      if (isFirst) setLoading(false); else setRefetching(false);
     }
   }, [isAdminOps]);
 
-  // Initial load
+  const firstRender = useRef(true);
   useEffect(() => {
     fetchData(from, to, clientId, true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Re-fetch when range or client changes (skip initial)
-  const isFirstRender = useRef(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (firstRender.current) { firstRender.current = false; return; }
     fetchData(from, to, clientId, false);
-  }, [from, to, clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, clientId]);
 
   const handleToday = () => {
     const f = todayYMD();
-    const t = addDays(f, 13);
     setFrom(f);
-    setTo(t);
+    setTo(addDays(f, 13));
   };
 
-  // ── build day map ────────────────────────────────────────────────────────
-
-  const slots = data?.slots || [];
-  const appointments = data?.appointments || [];
-
   const slotsByDay = {};
-  slots.forEach(s => {
+  for (const s of (data.slots || [])) {
+    if (!s || !s.date) continue;
     if (!slotsByDay[s.date]) slotsByDay[s.date] = [];
     slotsByDay[s.date].push(s);
-  });
-
+  }
   const apptsByDay = {};
-  appointments.forEach(a => {
-    const day = getApptDate(a.appointment_at);
+  for (const a of (data.appointments || [])) {
+    const day = getApptDate(a?.appointment_at);
+    if (!day) continue;
     if (!apptsByDay[day]) apptsByDay[day] = [];
     apptsByDay[day].push(a);
-  });
-  // Sort appointments within each day
-  Object.values(apptsByDay).forEach(arr =>
-    arr.sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at))
-  );
+  }
+  for (const arr of Object.values(apptsByDay)) {
+    arr.sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
+  }
 
-  const days = from <= to ? buildDayRange(from, to) : [];
-
-  // ── render ───────────────────────────────────────────────────────────────
+  const days = buildDayRange(from, to);
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-[1000px] mx-auto space-y-5">
-
-        {/* Top bar */}
         <div className="flex flex-wrap items-end gap-3 justify-between">
           <div className="flex flex-wrap items-end gap-3">
-            <h1 className="text-2xl font-semibold text-foreground self-end">Calendar</h1>
-
+            <h1 className="text-2xl font-semibold self-end">Calendar</h1>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium">From</p>
-              <Input type="date" className="h-9 w-36" value={from} onChange={e => setFrom(e.target.value)} />
+              <Input type="date" className="h-9 w-36" value={from} onChange={(e) => setFrom(e.target.value)} />
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium">To</p>
-              <Input type="date" className="h-9 w-36" value={to} onChange={e => setTo(e.target.value)} />
+              <Input type="date" className="h-9 w-36" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
-
             <Button size="sm" variant="outline" className="h-9" onClick={handleToday}>Today</Button>
-
-            {/* Client selector — admin/operations only */}
-            {isAdminOps && (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Client</p>
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger className="w-52 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_OPTIONS.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             <Button
-              size="sm"
-              variant="outline"
-              className="h-9 gap-1.5"
+              size="sm" variant="outline" className="h-9 gap-1.5"
               onClick={() => fetchData(from, to, clientId, false)}
             >
               {refetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               Refresh
             </Button>
           </div>
-
           {showEditAvailability && (
-            <Button
-              size="sm"
-              className="h-9 gap-1.5"
-              onClick={() => navigate('/calendar/availability')}
-            >
-              <CalendarDays className="w-4 h-4" />
-              Edit availability
+            <Button size="sm" className="h-9 gap-1.5" onClick={() => navigate('/calendar/availability')}>
+              <CalendarDays className="w-4 h-4" /> Edit availability
             </Button>
           )}
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="flex items-center justify-between rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">
-            <span>{error}</span>
-            <Button size="sm" variant="ghost" className="text-destructive h-7" onClick={() => fetchData(from, to, clientId, false)}>
-              Retry
-            </Button>
-          </div>
+          <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{error}</div>
         )}
 
-        {/* Loading spinner (first load) */}
-        {loading && (
+        {loading ? (
           <div className="flex justify-center py-24">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        )}
-
-        {/* Empty range */}
-        {!loading && !error && from > to && (
-          <div className="py-20 text-center text-muted-foreground text-sm">
-            "From" date must be before "To" date.
-          </div>
-        )}
-
-        {/* Day cards */}
-        {!loading && !error && from <= to && (
-          days.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground text-sm">Nothing in this range.</div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {days.map(day => {
-                const daySlots = slotsByDay[day] || [];
-                const dayAppts = apptsByDay[day] || [];
-                return (
-                  <Card key={day}>
-                    <CardContent className="pt-4 pb-4 space-y-3">
-                      {/* Day header */}
-                      <div className="flex items-start justify-between gap-4">
-                        <span className="text-sm font-semibold text-foreground">{formatDayHeader(day)}</span>
-                        <div className="flex flex-wrap gap-1.5 justify-end">
-                          {daySlots.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">Closed</span>
-                          ) : (
-                            daySlots.map((s, i) => <SlotBadge key={i} slot={s} />)
-                          )}
-                        </div>
+        ) : days.length === 0 ? (
+          <div className="py-20 text-center text-muted-foreground text-sm">"From" date must be ≤ "To" date.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {days.map((day) => {
+              const daySlots = slotsByDay[day] || [];
+              const dayAppts = apptsByDay[day] || [];
+              return (
+                <Card key={day}>
+                  <CardContent className="pt-4 pb-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-sm font-semibold">{formatDayHeader(day)}</span>
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {daySlots.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">Closed</span>
+                        ) : daySlots.map((s, i) => (
+                          <Badge key={i} className={s.source === 'specific' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}>
+                            {s.start_time}–{s.end_time} · cap {s.capacity}
+                          </Badge>
+                        ))}
                       </div>
-
-                      {/* Appointments */}
-                      {dayAppts.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No appointments</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {dayAppts.map(appt => (
-                            <div
-                              key={appt.id}
-                              onClick={() => navigate(`/appointments/${appt.id}`)}
-                              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
-                            >
-                              <span className="text-sm text-muted-foreground w-16 shrink-0">
-                                {formatTime(appt.appointment_at)}
-                              </span>
-                              <span className="text-sm font-medium text-foreground flex-1 min-w-[120px]">
-                                {appt.prospect_name || '—'}
-                              </span>
-                              <div className="flex flex-wrap gap-1.5">
-                                <SmallBadge
-                                  label={appt.qualification || 'pending'}
-                                  className={QUAL_COLORS[appt.qualification?.toLowerCase()] || 'bg-muted text-muted-foreground'}
-                                />
-                                <SmallBadge
-                                  label={clientDecisionLabel(appt.client_decision)}
-                                  className={clientDecisionColor(appt.client_decision)}
-                                />
-                                <SmallBadge
-                                  label={appt.outcome || 'pending'}
-                                  className={OUTCOME_COLORS[appt.outcome?.toLowerCase()] || 'bg-muted text-muted-foreground'}
-                                />
-                              </div>
+                    </div>
+                    {dayAppts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No appointments</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {dayAppts.map((a) => (
+                          <div
+                            key={a.id}
+                            onClick={() => navigate(`/appointments/${a.id}`)}
+                            className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer"
+                          >
+                            <span className="text-sm text-muted-foreground w-16 shrink-0">{formatTime(a.appointment_at)}</span>
+                            <span className="text-sm font-medium flex-1 min-w-[120px]">{a.prospect_name || '—'}</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              <Badge className="bg-muted text-muted-foreground">{a.qualification || 'pending'}</Badge>
+                              <Badge className="bg-muted text-muted-foreground">{a.client_decision || 'pending'}</Badge>
+                              <Badge className="bg-muted text-muted-foreground">{(a.outcome || 'pending').replace(/_/g, ' ')}</Badge>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
