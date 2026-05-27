@@ -307,6 +307,44 @@ export default function AppointmentDetail() {
     }
   };
 
+  // ── Redistribute ─────────────────────────────────────────────────────────
+  const redistribute = async () => {
+    if (!window.confirm('Move this appointment to the selected client? The new client will need to accept it again.')) return;
+    setRdError('');
+    setRdSaving(true);
+    try {
+      await apiClient.redistribute(id, {
+        to_client_id: Number(rdTargetClient),
+        reason: rdReason || null,
+      });
+      await loadAppt();
+      toast.success('Appointment redistributed');
+    } catch (err) {
+      setRdError(err.message || 'Failed to redistribute.');
+    } finally {
+      setRdSaving(false);
+    }
+  };
+
+  // ── Admin payout save ────────────────────────────────────────────────────
+  const saveAdminPayout = async () => {
+    setPaError('');
+    setPaSaving(true);
+    try {
+      await apiClient.setAdminPayout(id, {
+        team_approved: paTeamApproved,
+        team_paid: paTeamPaid,
+        team_approve_note: paApproveNote || null,
+      });
+      await loadAppt();
+      toast.success('Payout updated');
+    } catch (err) {
+      setPaError(err.message || 'Failed to save.');
+    } finally {
+      setPaSaving(false);
+    }
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -657,6 +695,54 @@ export default function AppointmentDetail() {
           </Card>
         )}
 
+        {/* Redistribute panel */}
+        {['admin', 'operations'].includes(user?.role) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Redistribute to another client</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Move this appointment to a different client. The new client's decision will reset to Pending and they will need to accept it. Full history is preserved.
+              </p>
+              {rdError && (
+                <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{rdError}</div>
+              )}
+              <div className="space-y-1">
+                <Label className="text-sm">Target client</Label>
+                {/* TODO: replace with GET /api/clients once the endpoint is exposed. */}
+                <Select value={rdTargetClient} onValueChange={setRdTargetClient}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_OPTIONS.map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Reason (optional)</Label>
+                <Textarea
+                  placeholder="Optional"
+                  value={rdReason}
+                  onChange={e => setRdReason(e.target.value)}
+                  className="h-20 resize-none"
+                />
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!rdTargetClient || rdSaving || (appt.client_id && Number(rdTargetClient) === appt.client_id)}
+                onClick={redistribute}
+              >
+                {rdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redistribute'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Confirmations panel */}
         {showPanels && (
           <Card>
@@ -701,6 +787,54 @@ export default function AppointmentDetail() {
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Admin payout panel */}
+        {user?.role === 'admin' && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Admin payout</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {paError && (
+                <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{paError}</div>
+              )}
+              <div className="flex gap-6">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="pa-team-approved"
+                    checked={paTeamApproved}
+                    onCheckedChange={v => setPaTeamApproved(!!v)}
+                  />
+                  <Label htmlFor="pa-team-approved" className="font-normal cursor-pointer text-sm">Approved for team payout</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="pa-team-paid"
+                    checked={paTeamPaid}
+                    onCheckedChange={v => setPaTeamPaid(!!v)}
+                  />
+                  <Label htmlFor="pa-team-paid" className="font-normal cursor-pointer text-sm">Paid to team</Label>
+                </div>
+              </div>
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                <span>Approved: <span className={paTeamApproved ? 'text-green-700 font-medium' : 'text-foreground'}>{paTeamApproved ? 'Yes' : 'No'}</span></span>
+                <span>Paid: <span className={paTeamPaid ? 'text-green-700 font-medium' : 'text-foreground'}>{paTeamPaid ? 'Yes' : 'No'}</span></span>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Approval note</Label>
+                <Textarea
+                  placeholder="Optional"
+                  value={paApproveNote}
+                  onChange={e => setPaApproveNote(e.target.value)}
+                  className="h-20 resize-none"
+                />
+              </div>
+              <Button size="sm" disabled={paSaving} onClick={saveAdminPayout}>
+                {paSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              </Button>
             </CardContent>
           </Card>
         )}
