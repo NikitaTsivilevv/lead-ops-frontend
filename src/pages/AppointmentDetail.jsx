@@ -128,8 +128,15 @@ export default function AppointmentDetail() {
   const [confRows, setConfRows] = useState(buildConfRows([]));
   const [confSaving, setConfSaving] = useState({}); // { [stage]: bool }
 
+  // Client decision panel state
+  const [cdCloser, setCdCloser] = useState('');
+  const [cdSaving, setCdSaving] = useState(false);
+  const [cdError, setCdError] = useState('');
+  const [cdForbidden, setCdForbidden] = useState(false);
+
   const canEdit = user?.role !== 'client';
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
+  const showClientDecision = ['admin', 'operations', 'client'].includes(user?.role);
 
   const loadAppt = useCallback(async () => {
     setError('');
@@ -140,10 +147,12 @@ export default function AppointmentDetail() {
       setAppt(a);
       setQualValue(a.qualification && a.qualification !== 'pending' ? a.qualification : '');
       setQualNote(a.qualification_note || '');
+      setCdCloser(a.assigned_closer || '');
       // confirmations may or may not be side-loaded
       setConfRows(buildConfRows(a.confirmations || []));
     } catch (err) {
       if (err.status === 404) setNotFound(true);
+      else if (err.status === 403) setCdForbidden(true);
       else setError(err.message || 'Failed to load.');
     } finally {
       setLoading(false);
@@ -182,6 +191,53 @@ export default function AppointmentDetail() {
 
   const updateConfRow = (stage, field, value) => {
     setConfRows(rows => rows.map(r => r.stage === stage ? { ...r, [field]: value } : r));
+  };
+
+  // ── Client decision actions ──────────────────────────────────────────────
+  const acceptAppointment = async () => {
+    setCdError('');
+    setCdSaving(true);
+    try {
+      await apiClient.setClientDecision(id, { decision: 'accepted', assigned_closer: cdCloser || null });
+      await loadAppt();
+      toast.success('Appointment accepted');
+    } catch (err) {
+      if (err.status === 403) setCdForbidden(true);
+      else setCdError(err.message || 'Failed to save.');
+    } finally {
+      setCdSaving(false);
+    }
+  };
+
+  const rejectAppointment = async () => {
+    if (!window.confirm('Reject this appointment? It can be redistributed to another client.')) return;
+    setCdError('');
+    setCdSaving(true);
+    try {
+      await apiClient.setClientDecision(id, { decision: 'rejected' });
+      await loadAppt();
+      toast.success('Appointment rejected');
+    } catch (err) {
+      if (err.status === 403) setCdForbidden(true);
+      else setCdError(err.message || 'Failed to save.');
+    } finally {
+      setCdSaving(false);
+    }
+  };
+
+  const saveCloser = async () => {
+    setCdError('');
+    setCdSaving(true);
+    try {
+      await apiClient.setClientDecision(id, { decision: 'accepted', assigned_closer: cdCloser || null });
+      await loadAppt();
+      toast.success('Closer updated');
+    } catch (err) {
+      if (err.status === 403) setCdForbidden(true);
+      else setCdError(err.message || 'Failed to save.');
+    } finally {
+      setCdSaving(false);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -323,6 +379,94 @@ export default function AppointmentDetail() {
               >
                 {qualSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Client decision panel */}
+        {showClientDecision && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-base">Client decision</CardTitle>
+                <Badge className={clientDecisionColor(appt.client_decision)}>
+                  {clientDecisionLabel(appt.client_decision)}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {cdForbidden ? (
+                <p className="text-sm text-muted-foreground">You don't have access to this appointment.</p>
+              ) : (
+                <>
+                  {cdError && (
+                    <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{cdError}</div>
+                  )}
+
+                  {/* Pending state */}
+                  {(!appt.client_decision || appt.client_decision === 'pending') && (
+                    <div className="space-y-3">
+                      <Input
+                        placeholder="Assigned closer (optional)"
+                        value={cdCloser}
+                        onChange={e => setCdCloser(e.target.value)}
+                        className="max-w-xs"
+                      />
+                      <div className="flex gap-3">
+                        <Button disabled={cdSaving} onClick={acceptAppointment}>
+                          {cdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept appointment'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                          disabled={cdSaving}
+                          onClick={rejectAppointment}
+                        >
+                          Reject appointment
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Accepted / auto-accepted state */}
+                  {(appt.client_decision === 'accepted' || appt.client_decision === 'auto-accepted' || appt.client_decision === true) && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Closer: <span className="text-foreground font-medium">{appt.assigned_closer || 'Not assigned'}</span>
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="Assigned closer"
+                          value={cdCloser}
+                          onChange={e => setCdCloser(e.target.value)}
+                          className="h-8 max-w-xs"
+                        />
+                        <Button size="sm" className="h-8" disabled={cdSaving} onClick={saveCloser}>
+                          {cdSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive h-7 px-0"
+                        disabled={cdSaving}
+                        onClick={rejectAppointment}
+                      >
+                        Reject instead
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Rejected state */}
+                  {(appt.client_decision === 'rejected' || appt.client_decision === false) && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        An operations user can redistribute this appointment to another client.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         )}
