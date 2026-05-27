@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiClient } from '../api/apiClient';
+import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext(null);
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
   function logout() {
     apiClient.setToken(null);
     setUser(null);
+    try { base44.auth.logout('/login'); } catch { window.location.href = '/login'; }
   }
 
   return (
