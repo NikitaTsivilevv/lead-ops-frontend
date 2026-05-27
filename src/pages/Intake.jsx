@@ -118,15 +118,7 @@ export default function Intake() {
       toast.success('Lead submitted');
       setForm(INITIAL);
     } catch (err) {
-      if (err.status === 400 && err.payload?.error === 'validation_error') {
-        const issues = err.payload.issues;
-        const detail = issues
-          ? Object.entries(issues).map(([f, m]) => `${f}: ${m}`).join('; ')
-          : '';
-        setError(`Validation error${detail ? ` — ${detail}` : ''}. ${err.payload.message || ''}`);
-      } else {
-        setError(err.message || 'Something went wrong.');
-      }
+      setError(explainLeadError(err));
     } finally {
       setSubmitting(false);
     }

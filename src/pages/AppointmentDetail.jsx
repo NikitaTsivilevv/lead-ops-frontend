@@ -323,7 +323,7 @@ export default function AppointmentDetail() {
       await loadAppt();
       toast.success('Outcome saved');
     } catch (err) {
-      setOcError(err.message || 'Failed to save.');
+      setOcError(explainOutcomeError(err));
     } finally {
       setOcSaving(false);
     }
@@ -342,7 +342,7 @@ export default function AppointmentDetail() {
       await loadAppt();
       toast.success('Appointment redistributed');
     } catch (err) {
-      setRdError(err.message || 'Failed to redistribute.');
+      setRdError(explainRedistError(err));
     } finally {
       setRdSaving(false);
     }
