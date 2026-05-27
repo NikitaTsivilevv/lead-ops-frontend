@@ -12,6 +12,7 @@ import Leads from '@/pages/Leads';
 import Confirmation from '@/pages/Confirmation';
 import AppointmentDetail from '@/pages/AppointmentDetail';
 import Calendar from '@/pages/Calendar';
+import AvailabilityEditor from '@/pages/AvailabilityEditor';
 
 const AppRoutes = () => (
   <Routes>
@@ -22,6 +23,7 @@ const AppRoutes = () => (
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
     <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
     <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
+    <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client']}><AvailabilityEditor /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
