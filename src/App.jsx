@@ -8,12 +8,14 @@ import { AuthProvider } from '@/lib/LeadOpsAuthContext';
 import { RoleHome, RequireAuth } from '@/lib/RoleRouter';
 import AuthGate from '@/pages/AuthGate';
 import Intake from '@/pages/Intake';
+import Leads from '@/pages/Leads';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<RoleHome />} />
     <Route path="/login" element={<AuthGate />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
+    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
