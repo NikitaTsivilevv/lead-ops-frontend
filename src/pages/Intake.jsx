@@ -53,21 +53,41 @@ function YesNo({ name, label, value, onChange }) {
 }
 
 function explainLeadError(err) {
-  if (err.status === 403 && err.payload?.message?.includes('only callers')) {
-    return 'Only callers can submit leads. Sign in with a caller account.';
+  const status = err?.status;
+  const payload = err?.payload || {};
+  const errorCode = payload.error;
+  const message = payload.message || '';
+  const requiredRoles = payload.required_roles || [];
+
+  // 403 from the requireRole middleware (response shape: { error: 'forbidden', required_roles: [...] })
+  if (status === 403 && errorCode === 'forbidden') {
+    if (requiredRoles.includes('caller')) {
+      return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
+    }
+    return 'You do not have permission to submit leads.';
   }
-  if (err.status === 400 && err.payload?.error === 'no_client_assigned') {
+
+  // 403 thrown from inside the service (response shape: { error: 'forbidden', message: '...' })
+  if (status === 403 && message.toLowerCase().includes('only callers')) {
+    return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
+  }
+
+  // 400 no_client_assigned — a caller account exists but has no client_id link
+  if (status === 400 && errorCode === 'no_client_assigned') {
     return 'Your account is not assigned to a client. Ask an admin to link your account to a client.';
   }
-  if (err.status === 400 && err.payload?.error === 'validation_error') {
-    const first = err.payload?.issues?.[0];
+
+  // 400 validation_error — Zod schema failure on the request body
+  if (status === 400 && errorCode === 'validation_error') {
+    const first = (payload.issues || [])[0];
     if (first) {
       const path = (first.path || []).join('.');
       return `Validation: ${first.message}${path ? ` (${path})` : ''}`;
     }
     return 'Some fields are invalid. Please check the form.';
   }
-  return err.message || 'Failed to submit lead.';
+
+  return err?.message || 'Failed to submit lead.';
 }
 
 export default function Intake() {
