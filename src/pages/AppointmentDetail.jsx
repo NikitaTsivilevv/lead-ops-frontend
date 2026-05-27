@@ -399,9 +399,18 @@ export default function AppointmentDetail() {
           <div className="flex flex-wrap items-start gap-3">
             <h1 className="text-2xl font-semibold text-foreground">{appt.prospect_name || 'Untitled'}</h1>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Badge className={qualColor}>{appt.qualification || 'pending'}</Badge>
-              <Badge className={clientDecisionColor(appt.client_decision)}>{clientDecisionLabel(appt.client_decision)}</Badge>
-              <Badge className={outcomeColor}>{appt.outcome || 'pending'}</Badge>
+              <Badge className={qualColor}>
+                <span className="text-[10px] uppercase tracking-wide opacity-70 mr-1.5">Qualification</span>
+                {appt.qualification || 'pending'}
+              </Badge>
+              <Badge className={clientDecisionColor(appt.client_decision)}>
+                <span className="text-[10px] uppercase tracking-wide opacity-70 mr-1.5">Decision</span>
+                {clientDecisionLabel(appt.client_decision)}
+              </Badge>
+              <Badge className={outcomeColor}>
+                <span className="text-[10px] uppercase tracking-wide opacity-70 mr-1.5">Outcome</span>
+                {(appt.outcome || 'pending').replace(/_/g, ' ')}
+              </Badge>
             </div>
           </div>
         </div>
