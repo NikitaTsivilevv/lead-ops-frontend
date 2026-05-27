@@ -33,7 +33,6 @@ export function AuthProvider({ children }) {
   function logout() {
     apiClient.setToken(null);
     setUser(null);
-    window.location.href = '/login';
   }
 
   return (

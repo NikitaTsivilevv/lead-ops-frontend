@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
@@ -14,6 +14,7 @@ const ROLE_LABELS = {
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   if (!user) return null;
   return (
     <header className="border-b bg-background sticky top-0 z-30">
@@ -86,7 +87,7 @@ export default function AppHeader() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => logout()}
+            onClick={() => { logout(); navigate('/login'); }}
           >
             <LogOut className="w-4 h-4 mr-1" />
             Sign out
