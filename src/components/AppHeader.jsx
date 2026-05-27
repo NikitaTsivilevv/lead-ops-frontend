@@ -26,6 +26,16 @@ export default function AppHeader() {
         <nav className="flex items-center gap-1 ml-4">
           {user.role !== 'caller' && (
             <NavLink
+              to="/pipeline"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+              }
+            >
+              Pipeline
+            </NavLink>
+          )}
+          {user.role !== 'caller' && (
+            <NavLink
               to="/calendar"
               className={({ isActive }) =>
                 `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
