@@ -5,7 +5,7 @@ import AppHeader from '@/components/AppHeader';
 
 const ROLE_HOME = {
   caller:        '/intake',
-  confirmation:  '/leads',
+  confirmation:  '/confirmation',
   operations:    '/leads',
   admin:         '/leads',
   client:        '/leads',

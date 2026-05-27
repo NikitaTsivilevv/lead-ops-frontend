@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
@@ -21,6 +21,41 @@ export default function AppHeader() {
         <Link to="/" className="font-semibold tracking-tight hover:opacity-80">
           lead-ops
         </Link>
+
+        {/* Role-aware nav */}
+        <nav className="flex items-center gap-1 ml-4">
+          {user.role !== 'caller' && (
+            <NavLink
+              to="/leads"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+              }
+            >
+              Leads
+            </NavLink>
+          )}
+          {['admin', 'operations', 'confirmation'].includes(user.role) && (
+            <NavLink
+              to="/confirmation"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+              }
+            >
+              Confirmation
+            </NavLink>
+          )}
+          {user.role === 'caller' && (
+            <NavLink
+              to="/intake"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+              }
+            >
+              New lead
+            </NavLink>
+          )}
+        </nav>
+
         <div className="flex items-center gap-3">
           <div className="text-sm text-muted-foreground">
             <span className="hidden sm:inline">{user.email}</span>
