@@ -11,6 +11,7 @@ import Intake from '@/pages/Intake';
 import Leads from '@/pages/Leads';
 import Confirmation from '@/pages/Confirmation';
 import AppointmentDetail from '@/pages/AppointmentDetail';
+import Calendar from '@/pages/Calendar';
 
 const AppRoutes = () => (
   <Routes>
@@ -20,6 +21,7 @@ const AppRoutes = () => (
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
     <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
+    <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
