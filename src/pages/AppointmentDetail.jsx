@@ -146,6 +146,24 @@ export default function AppointmentDetail() {
   const [ocSaving, setOcSaving] = useState(false);
   const [ocError, setOcError] = useState('');
 
+  // Redistribute panel state
+  const [rdTargetClient, setRdTargetClient] = useState('');
+  const [rdReason, setRdReason] = useState('');
+  const [rdSaving, setRdSaving] = useState(false);
+  const [rdError, setRdError] = useState('');
+
+  // Admin payout panel state
+  const [paTeamApproved, setPaTeamApproved] = useState(false);
+  const [paTeamPaid, setPaTeamPaid] = useState(false);
+  const [paApproveNote, setPaApproveNote] = useState('');
+  const [paSaving, setPaSaving] = useState(false);
+  const [paError, setPaError] = useState('');
+
+  // TODO: replace with GET /api/clients once the endpoint is exposed.
+  const CLIENT_OPTIONS = [
+    { id: 1, name: 'Guy Green Constructions' },
+  ];
+
   const canEdit = user?.role !== 'client';
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
   const showClientDecision = ['admin', 'operations', 'client'].includes(user?.role);
@@ -170,6 +188,10 @@ export default function AppointmentDetail() {
         setOcSalesNotes(a.sales_notes || '');
         setOcNeedReschedule(!!a.need_reschedule);
       }
+      // Admin payout pre-population
+      setPaTeamApproved(!!a.team_approved);
+      setPaTeamPaid(!!a.team_paid);
+      setPaApproveNote(a.team_approve_note || '');
       // confirmations may or may not be side-loaded
       setConfRows(buildConfRows(a.confirmations || []));
     } catch (err) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,8 @@ const EMPTY_FILTERS = { qualification: '', outcome: '', from: '', to: '' };
 
 export default function Leads() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isClient = user?.role === 'client';
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +100,7 @@ export default function Leads() {
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{isClient ? 'My appointments' : 'Appointments'}</h1>
         </div>
 
         {/* Filters */}
@@ -185,7 +188,7 @@ export default function Leads() {
                     <TableHead>Qualification</TableHead>
                     <TableHead>Confirmed?</TableHead>
                     <TableHead>Outcome</TableHead>
-                    <TableHead>Agent</TableHead>
+                    {!isClient && <TableHead>Agent</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -208,9 +211,11 @@ export default function Leads() {
                       <TableCell>
                         <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {row.agent_id ? `#${row.agent_id}` : '—'}
-                      </TableCell>
+                      {!isClient && (
+                        <TableCell className="text-sm text-muted-foreground">
+                          {row.agent_id ? `#${row.agent_id}` : '—'}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
