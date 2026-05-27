@@ -5,13 +5,15 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import ScrollToTop from './components/ScrollToTop';
 import { AuthProvider } from '@/lib/LeadOpsAuthContext';
-import { RoleHome } from '@/lib/RoleRouter';
+import { RoleHome, RequireAuth } from '@/lib/RoleRouter';
 import AuthGate from '@/pages/AuthGate';
+import Intake from '@/pages/Intake';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<RoleHome />} />
     <Route path="/login" element={<AuthGate />} />
+    <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
