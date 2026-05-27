@@ -31,10 +31,11 @@ export function AuthProvider({ children }) {
     return res.user;
   }
 
-  function logout() {
+  async function logout() {
     apiClient.setToken(null);
     setUser(null);
-    try { base44.auth.logout('/login'); } catch { window.location.href = '/login'; }
+    try { await base44.auth.logout(); } catch {}
+    window.location.href = '/login';
   }
 
   return (
