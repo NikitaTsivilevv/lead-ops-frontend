@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './LeadOpsAuthContext';
+import AppHeader from '@/components/AppHeader';
 
 const ROLE_HOME = {
   caller:        '/intake',
@@ -25,5 +26,5 @@ export function RequireAuth({ allow, children }) {
   if (allow && !allow.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
-  return children;
+  return <><AppHeader />{children}</>;
 }
