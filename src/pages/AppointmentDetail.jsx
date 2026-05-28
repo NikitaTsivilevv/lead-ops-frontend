@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import AuditLogPanel from '@/components/AuditLogPanel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -436,6 +437,10 @@ export default function AppointmentDetail() {
             </div>
           </div>
         </div>
+
+        {/* Two-column layout: main panels left, activity log right */}
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+        <div className="space-y-4">
 
         {/* Lead info */}
         <Card>
@@ -869,6 +874,14 @@ export default function AppointmentDetail() {
             </CardContent>
           </Card>
         )}
+
+        </div>{/* end left column */}
+
+        <div className="space-y-4">
+          <AuditLogPanel appointmentId={appt.id} />
+        </div>{/* end right column */}
+
+        </div>{/* end grid */}
 
       </div>
     </div>
