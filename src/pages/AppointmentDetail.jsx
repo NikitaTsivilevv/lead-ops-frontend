@@ -14,6 +14,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import BillingSection from '@/components/BillingSection';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -829,52 +830,9 @@ export default function AppointmentDetail() {
           </Card>
         )}
 
-        {/* Admin payout panel */}
+        {/* Billing & payout panel (Sprint 3 — replaces the inline Admin payout block) */}
         {user?.role === 'admin' && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Admin payout</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {paError && (
-                <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{paError}</div>
-              )}
-              <div className="flex gap-6">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="pa-team-approved"
-                    checked={paTeamApproved}
-                    onCheckedChange={v => setPaTeamApproved(!!v)}
-                  />
-                  <Label htmlFor="pa-team-approved" className="font-normal cursor-pointer text-sm">Approved for team payout</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="pa-team-paid"
-                    checked={paTeamPaid}
-                    onCheckedChange={v => setPaTeamPaid(!!v)}
-                  />
-                  <Label htmlFor="pa-team-paid" className="font-normal cursor-pointer text-sm">Paid to team</Label>
-                </div>
-              </div>
-              <div className="flex gap-4 text-sm text-muted-foreground">
-                <span>Approved: <span className={paTeamApproved ? 'text-green-700 font-medium' : 'text-foreground'}>{paTeamApproved ? 'Yes' : 'No'}</span></span>
-                <span>Paid: <span className={paTeamPaid ? 'text-green-700 font-medium' : 'text-foreground'}>{paTeamPaid ? 'Yes' : 'No'}</span></span>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Approval note</Label>
-                <Textarea
-                  placeholder="Optional"
-                  value={paApproveNote}
-                  onChange={e => setPaApproveNote(e.target.value)}
-                  className="h-20 resize-none"
-                />
-              </div>
-              <Button size="sm" disabled={paSaving} onClick={saveAdminPayout}>
-                {paSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
-              </Button>
-            </CardContent>
-          </Card>
+          <BillingSection appointment={appt} onSaved={(a) => setAppt(a)} />
         )}
 
         </div>{/* end left column */}
