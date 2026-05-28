@@ -24,16 +24,16 @@ const COLUMNS = [
 ];
 
 function classify(appt) {
-  const { qualification, client_decision, outcome, need_reschedule } = appt;
-  if (outcome === 'reschedule_needed' || need_reschedule === true) return 'reschedule';
-  if (outcome === 'no_show')   return 'no_show';
-  if (outcome === 'not_sold')  return 'not_sold';
-  if (outcome === 'sold')      return 'sold';
-  if (outcome === 'showed')    return 'showed';
-  if (client_decision === 'rejected') return 'rejected';
-  if (qualification === 'qualified' && ['accepted', 'auto_accepted'].includes(client_decision) && outcome === 'pending') return 'accepted';
+  const { qualification, client_decision, show_status, sale_status, need_reschedule } = appt;
   if (qualification === 'disqualified') return 'disqualified';
-  if (qualification === 'qualified' && client_decision === 'pending') return 'qualified';
+  if (client_decision === 'rejected') return 'rejected';
+  if (client_decision === 'request_reschedule' || client_decision === 'pending_reapproval' || need_reschedule === true) return 'reschedule';
+  if (sale_status === 'sold') return 'sold';
+  if (show_status === 'no_show') return 'no_show';
+  if (sale_status === 'not_sold') return 'not_sold';
+  if (show_status === 'show') return 'showed';
+  if (client_decision === 'accepted' || client_decision === 'auto_accepted') return 'accepted';
+  if (qualification === 'qualified') return 'qualified';
   return 'new';
 }
 
@@ -78,7 +78,8 @@ function AppointmentCard({ appt }) {
       <div className="flex flex-wrap gap-1 mt-2">
         <StatusBadge label={appt.qualification} />
         <StatusBadge label={appt.client_decision} />
-        <StatusBadge label={appt.outcome} />
+        {appt.show_status && <StatusBadge label={appt.show_status} />}
+        {appt.sale_status && <StatusBadge label={appt.sale_status} />}
       </div>
     </div>
   );
