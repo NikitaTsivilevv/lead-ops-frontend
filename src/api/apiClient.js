@@ -60,6 +60,8 @@ export const apiClient = {
   setOutcome: (id, body) => request(`/api/appointments/${id}/outcome`, { method: 'PATCH', body }),
   redistribute: (id, body) => request(`/api/appointments/${id}/redistribute`, { method: 'POST', body }),
   setAdminPayout: (id, body) => request(`/api/appointments/${id}/admin`, { method: 'PATCH', body }),
+  listMyLeads: () => request('/api/leads/my'),
+  getAppointmentHistory: (appointmentId) => request(`/api/appointments/${appointmentId}/history`),
   // availability / calendar
   getAvailability: (clientId) => request(`/api/availability${clientId ? `?client_id=${clientId}` : ''}`),
   putAvailability: (body) => request('/api/availability', { method: 'PUT', body }),

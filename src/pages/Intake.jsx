@@ -9,24 +9,27 @@ import { toast } from 'sonner';
 import { apiClient } from '@/api/apiClient';
 
 const RENOVATION_OPTIONS = [
-  'Solar', 'Roof', 'HVAC / AC', 'Windows and Doors', 'Kitchen', 'Bathroom', 'Painting',
+  'Solar', 'Roof', 'HVAC / AC', 'Windows and Doors', 'Kitchen', 'Bathroom', 'Painting', 'Other',
 ];
 
 const INITIAL = {
+  caller_name: '',
   prospect_name: '',
   address: '',
   renovation_items: [],
+  other_renovation_text: '',
   q_homeowner: null,
   q_mortgage_current: null,
   q_taxes_paid_3y: null,
   q_bankruptcy_3y: null,
   q_reverse_mortgage: null,
-  credit_score_band: null,
+  credit_score_text: '',
   utility_bill_raw: '',
   phone: '',
   appointment_at: '',
   recording_url: '',
   campaign_source: '',
+  caller_notes: '',
 };
 
 function YesNo({ name, label, value, onChange }) {
@@ -114,21 +117,31 @@ export default function Intake() {
       return;
     }
 
+    if (form.renovation_items.includes('Other') && !form.other_renovation_text.trim()) {
+      setError('Please describe the "Other" renovation item.');
+      return;
+    }
+
     const body = {
+      caller_name: form.caller_name,
       prospect_name: form.prospect_name,
       address: form.address,
       renovation_items: form.renovation_items,
+      other_renovation_text: form.renovation_items.includes('Other')
+        ? form.other_renovation_text
+        : null,
       q_homeowner: form.q_homeowner,
       q_mortgage_current: form.q_mortgage_current,
       q_taxes_paid_3y: form.q_taxes_paid_3y,
       q_bankruptcy_3y: form.q_bankruptcy_3y,
       q_reverse_mortgage: form.q_reverse_mortgage,
-      credit_score_band: form.credit_score_band,
+      credit_score_text: form.credit_score_text || null,
       utility_bill_raw: form.utility_bill_raw || null,
       phone: form.phone || null,
       appointment_at: form.appointment_at ? new Date(form.appointment_at).toISOString() : null,
       recording_url: form.recording_url || null,
       campaign_source: form.campaign_source || null,
+      caller_notes: form.caller_notes || null,
     };
 
     setSubmitting(true);
@@ -157,6 +170,16 @@ export default function Intake() {
 
               {/* Basic info */}
               <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="caller_name">Your name (caller) *</Label>
+                  <Input
+                    id="caller_name"
+                    value={form.caller_name}
+                    onChange={e => setField('caller_name', e.target.value)}
+                    required
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="prospect_name">Prospect name *</Label>
                   <Input
@@ -193,6 +216,17 @@ export default function Intake() {
                     </div>
                   ))}
                 </div>
+                {form.renovation_items.includes('Other') && (
+                  <div className="space-y-1.5 mt-3">
+                    <Label htmlFor="other_renovation_text">Specify other renovation item *</Label>
+                    <Input
+                      id="other_renovation_text"
+                      value={form.other_renovation_text}
+                      onChange={e => setField('other_renovation_text', e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Qualification questions */}
@@ -205,23 +239,14 @@ export default function Intake() {
                 <YesNo name="q_reverse_mortgage" label="Do you have a reverse mortgage on the home?" value={form.q_reverse_mortgage} onChange={setField} />
               </div>
 
-              {/* Credit score band */}
               <div className="space-y-1.5">
-                <Label>Is the credit score over or under 650?</Label>
-                <RadioGroup
-                  value={form.credit_score_band || ''}
-                  onValueChange={v => setField('credit_score_band', v)}
-                  className="flex gap-6"
-                >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="over" id="credit-over" />
-                    <Label htmlFor="credit-over" className="font-normal cursor-pointer">Over</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="under" id="credit-under" />
-                    <Label htmlFor="credit-under" className="font-normal cursor-pointer">Under</Label>
-                  </div>
-                </RadioGroup>
+                <Label htmlFor="credit_score_text">What is your credit score?</Label>
+                <Input
+                  id="credit_score_text"
+                  placeholder="e.g. 680, 650-700, Not sure"
+                  value={form.credit_score_text}
+                  onChange={e => setField('credit_score_text', e.target.value)}
+                />
               </div>
 
               {/* Remaining fields */}
@@ -276,6 +301,17 @@ export default function Intake() {
                     onChange={e => setField('campaign_source', e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="caller_notes">General notes</Label>
+                <textarea
+                  id="caller_notes"
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="Anything else the team should know"
+                  value={form.caller_notes}
+                  onChange={e => setField('caller_notes', e.target.value)}
+                />
               </div>
 
               {/* Error */}

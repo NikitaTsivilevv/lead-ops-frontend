@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, RefreshCw } from 'lucide-react';
+import ConfirmationBadges from '@/components/ConfirmationBadges';
 
 function formatET(isoString) {
   if (!isoString) return '—';
@@ -83,14 +84,6 @@ export default function Leads() {
   const handleClear = () => {
     setFilters(EMPTY_FILTERS);
     fetch(EMPTY_FILTERS);
-  };
-
-  const clientDecisionLabel = (val) => {
-    if (val === null || val === undefined) return 'Pending';
-    if (val === true || val === 'accepted') return 'Accepted';
-    if (val === false || val === 'rejected') return 'Rejected';
-    if (val === 'auto-accepted') return 'Auto-accepted';
-    return val;
   };
 
   return (
@@ -206,7 +199,7 @@ export default function Leads() {
                       <TableCell>
                         <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />
                       </TableCell>
-                      <TableCell className="text-sm">{clientDecisionLabel(row.client_decision)}</TableCell>
+                      <TableCell><ConfirmationBadges confirmations={row.confirmations} /></TableCell>
                       <TableCell>
                         <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
                       </TableCell>
