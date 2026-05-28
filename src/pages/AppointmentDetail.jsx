@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
+import ConfirmationBadges from '@/components/ConfirmationBadges';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -435,6 +436,7 @@ export default function AppointmentDetail() {
                 {(appt.outcome || 'pending').replace(/_/g, ' ')}
               </Badge>
             </div>
+            <ConfirmationBadges confirmations={appt.confirmations || []} />
           </div>
         </div>
 
