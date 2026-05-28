@@ -61,6 +61,7 @@ export const apiClient = {
   redistribute: (id, body) => request(`/api/appointments/${id}/redistribute`, { method: 'POST', body }),
   setAdminPayout: (id, body) => request(`/api/appointments/${id}/admin`, { method: 'PATCH', body }),
   listMyLeads: () => request('/api/leads/my'),
+  updateMyLead: (id, body) => request(`/api/leads/my/${id}`, { method: 'PATCH', body }),
   getAppointmentHistory: (appointmentId) => request(`/api/appointments/${appointmentId}/history`),
   // availability / calendar
   getAvailability: (clientId) => request(`/api/availability${clientId ? `?client_id=${clientId}` : ''}`),
