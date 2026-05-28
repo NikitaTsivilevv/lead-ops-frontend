@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { format, subDays, addDays } from 'date-fns';
 import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshCw, Loader2, AlertCircle } from 'lucide-react';
