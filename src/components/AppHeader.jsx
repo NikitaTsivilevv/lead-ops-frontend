@@ -85,6 +85,26 @@ export default function AppHeader() {
               My Leads
             </NavLink>
           )}
+          {user.role === 'admin' && (
+            <>
+              <NavLink
+                to="/admin/clients"
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+                }
+              >
+                Clients
+              </NavLink>
+              <NavLink
+                to="/admin/callers"
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
+                }
+              >
+                Callers
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">

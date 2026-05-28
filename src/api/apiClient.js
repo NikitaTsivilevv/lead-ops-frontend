@@ -72,4 +72,13 @@ export const apiClient = {
     ).toString();
     return request(`/api/calendar?${qs}`);
   },
+  // agents (callers)
+  listAgents: (clientId) =>
+    request(`/api/agents${clientId ? `?client_id=${clientId}` : ''}`),
+  createAgent: (body) => request('/api/agents', { method: 'POST', body }),
+  updateAgent: (id, body) => request(`/api/agents/${id}`, { method: 'PATCH', body }),
+  // clients
+  listClients: () => request('/api/clients'),
+  createClient: (body) => request('/api/clients', { method: 'POST', body }),
+  updateClient: (id, body) => request(`/api/clients/${id}`, { method: 'PATCH', body }),
 };

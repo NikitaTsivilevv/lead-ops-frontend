@@ -16,6 +16,8 @@ import Calendar from '@/pages/Calendar';
 import AvailabilityEditor from '@/pages/AvailabilityEditor';
 import Pipeline from '@/pages/Pipeline';
 import MyLeads from '@/pages/MyLeads';
+import AdminCallers from '@/pages/AdminCallers';
+import AdminClients from '@/pages/AdminClients';
 
 const AppRoutes = () => (
   <Routes>
@@ -29,6 +31,8 @@ const AppRoutes = () => (
     <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Pipeline /></RequireAuth>} />
     <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
     <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client']}><AvailabilityEditor /></RequireAuth>} />
+    <Route path="/admin/callers" element={<RequireAuth allow={['admin']}><AdminCallers /></RequireAuth>} />
+    <Route path="/admin/clients" element={<RequireAuth allow={['admin']}><AdminClients /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
