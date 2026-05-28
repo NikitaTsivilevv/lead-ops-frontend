@@ -15,12 +15,14 @@ import AppointmentDetail from '@/pages/AppointmentDetail';
 import Calendar from '@/pages/Calendar';
 import AvailabilityEditor from '@/pages/AvailabilityEditor';
 import Pipeline from '@/pages/Pipeline';
+import MyLeads from '@/pages/MyLeads';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<RoleHome />} />
     <Route path="/login" element={<AuthGate />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
+    <Route path="/my-leads" element={<RequireAuth allow={['caller','admin']}><MyLeads /></RequireAuth>} />
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
     <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
