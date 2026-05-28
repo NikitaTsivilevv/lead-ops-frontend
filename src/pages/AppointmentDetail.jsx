@@ -28,6 +28,26 @@ function formatET(isoString, opts) {
   return new Intl.DateTimeFormat('en-US', { ...defaults, ...opts }).format(new Date(isoString));
 }
 
+function isoToDatetimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const parts = {};
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d).forEach(({ type, value }) => { parts[type] = value; });
+  const h = parts.hour === '24' ? '00' : parts.hour;
+  return `${parts.year}-${parts.month}-${parts.day}T${h}:${parts.minute}`;
+}
+
+function datetimeLocalETToISO(val) {
+  if (!val) return null;
+  const month = parseInt(val.split('-')[1], 10);
+  const offset = (month >= 3 && month <= 11) ? '-04:00' : '-05:00';
+  return new Date(`${val}:00${offset}`).toISOString();
+}
+
 function formatFullET(isoString) {
   if (!isoString) return '—';
   return new Intl.DateTimeFormat('en-US', {
@@ -53,9 +73,10 @@ const OUTCOME_COLORS = {
 };
 
 function clientDecisionColor(val) {
-  if (val === true || val === 'accepted') return 'bg-green-100 text-green-800';
+  if (val === true || val === 'accepted' || val === 'auto_accepted') return 'bg-green-100 text-green-800';
   if (val === false || val === 'rejected') return 'bg-red-100 text-red-800';
   if (val === 'auto-accepted') return 'bg-blue-100 text-blue-800';
+  if (val === 'request_reschedule' || val === 'pending_reapproval') return 'bg-orange-100 text-orange-800';
   return 'bg-muted text-muted-foreground';
 }
 
@@ -63,7 +84,9 @@ function clientDecisionLabel(val) {
   if (val === null || val === undefined) return 'Pending';
   if (val === true || val === 'accepted') return 'Accepted';
   if (val === false || val === 'rejected') return 'Rejected';
-  if (val === 'auto-accepted') return 'Auto-accepted';
+  if (val === 'auto_accepted' || val === 'auto-accepted') return 'Auto-accepted';
+  if (val === 'request_reschedule') return 'Reschedule requested';
+  if (val === 'pending_reapproval') return 'Pending re-approval';
   return String(val);
 }
 
@@ -156,12 +179,14 @@ export default function AppointmentDetail() {
 
   // Client decision panel state
   const [cdCloser, setCdCloser] = useState('');
+  const [cdNote, setCdNote] = useState('');
   const [cdSaving, setCdSaving] = useState(false);
   const [cdError, setCdError] = useState('');
   const [cdForbidden, setCdForbidden] = useState(false);
 
   // Outcome panel state
-  const [ocOutcome, setOcOutcome] = useState('');
+  const [ocShowStatus, setOcShowStatus] = useState('');  // 'show' | 'no_show' | ''
+  const [ocSaleStatus, setOcSaleStatus] = useState('');  // 'sold' | 'not_sold' | ''
   const [ocNoShowReason, setOcNoShowReason] = useState('');
   const [ocSaleAmount, setOcSaleAmount] = useState('');
   const [ocItemsSold, setOcItemsSold] = useState('');
@@ -176,6 +201,10 @@ export default function AppointmentDetail() {
   const [rdReason, setRdReason] = useState('');
   const [rdSaving, setRdSaving] = useState(false);
   const [rdError, setRdError] = useState('');
+
+  // Reschedule panel state (admin / operations only)
+  const [rescheduleIso, setRescheduleIso] = useState('');
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
 
   // Admin payout panel state
   const [paTeamApproved, setPaTeamApproved] = useState(false);
@@ -203,16 +232,17 @@ export default function AppointmentDetail() {
       setQualValue(a.qualification && a.qualification !== 'pending' ? a.qualification : '');
       setQualNote(a.qualification_note || '');
       setCdCloser(a.assigned_closer || '');
-      // Outcome pre-population
-      if (a.outcome && a.outcome !== 'pending') {
-        setOcOutcome(a.outcome);
-        setOcNoShowReason(a.no_show_reason || '');
-        setOcSaleAmount(a.sale_amount != null ? String(a.sale_amount) : '');
-        setOcItemsSold(a.items_sold || '');
-        setOcMeetingNotes(a.meeting_notes || '');
-        setOcSalesNotes(a.sales_notes || '');
-        setOcNeedReschedule(!!a.need_reschedule);
-      }
+      // Outcome pre-population from new split fields
+      setOcShowStatus(a.show_status || '');
+      setOcSaleStatus(a.sale_status || '');
+      setOcNoShowReason(a.no_show_reason || '');
+      setOcSaleAmount(a.sale_amount != null ? String(a.sale_amount) : '');
+      setOcItemsSold(a.items_sold || '');
+      setOcMeetingNotes(a.meeting_notes || '');
+      setOcSalesNotes(a.sales_notes || '');
+      setOcNeedReschedule(!!a.need_reschedule);
+      // Reschedule pre-population
+      setRescheduleIso(isoToDatetimeLocal(a.appointment_at));
       // Admin payout pre-population
       setPaTeamApproved(!!a.team_approved);
       setPaTeamPaid(!!a.team_paid);
@@ -240,6 +270,25 @@ export default function AppointmentDetail() {
       toast.success('Qualification saved');
     } finally {
       setQualSaving(false);
+    }
+  };
+
+  // ── Reschedule save (admin / operations) ────────────────────────────────
+  const handleRescheduleSave = async () => {
+    if (!rescheduleIso) return;
+    const alreadyAccepted = appt.client_decision === 'accepted' || appt.client_decision === 'auto_accepted';
+    if (alreadyAccepted && !window.confirm(
+      'Client has already accepted this appointment. Changing the time will require re-approval. Continue?'
+    )) return;
+    setRescheduleSaving(true);
+    try {
+      await apiClient.rescheduleAppointment(id, datetimeLocalETToISO(rescheduleIso));
+      await loadAppt();
+      toast.success(alreadyAccepted ? 'Time updated — client re-approval requested' : 'Appointment time updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reschedule');
+    } finally {
+      setRescheduleSaving(false);
     }
   };
 
@@ -294,6 +343,21 @@ export default function AppointmentDetail() {
     }
   };
 
+  const requestReschedule = async () => {
+    setCdError('');
+    setCdSaving(true);
+    try {
+      await apiClient.setClientDecision(id, { decision: 'request_reschedule', note: cdNote || null });
+      await loadAppt();
+      toast.success('Reschedule requested');
+    } catch (err) {
+      if (err.status === 403) setCdForbidden(true);
+      else setCdError(err.message || 'Failed to save.');
+    } finally {
+      setCdSaving(false);
+    }
+  };
+
   const saveCloser = async () => {
     setCdError('');
     setCdSaving(true);
@@ -315,13 +379,14 @@ export default function AppointmentDetail() {
     setOcSaving(true);
     try {
       await apiClient.setOutcome(id, {
-        outcome: ocOutcome,
-        no_show_reason: ocOutcome === 'no_show' ? (ocNoShowReason || null) : null,
-        sale_amount: ocOutcome === 'sold' && ocSaleAmount !== '' ? Number(ocSaleAmount) : null,
-        items_sold: ocOutcome === 'sold' && ocItemsSold ? ocItemsSold : null,
+        show_status: ocShowStatus || null,
+        sale_status: ocSaleStatus || null,
+        reschedule_requested: ocNeedReschedule,
+        no_show_reason: ocShowStatus === 'no_show' ? (ocNoShowReason || null) : null,
+        sale_amount: ocSaleStatus === 'sold' && ocSaleAmount !== '' ? Number(ocSaleAmount) : null,
+        items_sold: ocSaleStatus === 'sold' && ocItemsSold ? ocItemsSold : null,
         meeting_notes: ocMeetingNotes || null,
         sales_notes: ocSalesNotes || null,
-        need_reschedule: ocNeedReschedule,
       });
       await loadAppt();
       toast.success('Outcome saved');
@@ -493,6 +558,37 @@ export default function AppointmentDetail() {
           </CardContent>
         </Card>
 
+        {/* Reschedule panel — admin / operations only */}
+        {['admin', 'operations'].includes(user?.role) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Change appointment time</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm">
+                  Date & time <span className="text-xs text-muted-foreground">(Eastern Time)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="datetime-local"
+                    className="h-9 w-auto"
+                    value={rescheduleIso}
+                    onChange={e => setRescheduleIso(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={rescheduleSaving || !rescheduleIso}
+                    onClick={handleRescheduleSave}
+                  >
+                    {rescheduleSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Qualification panel */}
         {showPanels && (
           <Card>
@@ -550,6 +646,30 @@ export default function AppointmentDetail() {
                     <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{cdError}</div>
                   )}
 
+                  {/* Pending re-approval banner */}
+                  {appt.client_decision === 'pending_reapproval' && (
+                    <div className="rounded-lg border border-orange-500/50 bg-orange-50 px-4 py-3 space-y-3">
+                      <p className="text-sm font-medium text-orange-900">Meeting time changed — re-approval needed</p>
+                      <p className="text-sm text-orange-700">
+                        New time: {formatFullET(appt.appointment_at)}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" disabled={cdSaving} onClick={acceptAppointment}>
+                          {cdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept new time'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                          disabled={cdSaving}
+                          onClick={rejectAppointment}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Pending state */}
                   {(!appt.client_decision || appt.client_decision === 'pending') && (
                     <div className="space-y-3">
@@ -559,10 +679,25 @@ export default function AppointmentDetail() {
                         onChange={e => setCdCloser(e.target.value)}
                         className="max-w-xs"
                       />
-                      <div className="flex gap-3">
+                      <Textarea
+                        placeholder="Optional note (e.g. preferred new time)"
+                        value={cdNote}
+                        onChange={e => setCdNote(e.target.value)}
+                        className="h-16 resize-none max-w-md"
+                      />
+                      <div className="flex gap-3 flex-wrap">
                         <Button disabled={cdSaving} onClick={acceptAppointment}>
                           {cdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept appointment'}
                         </Button>
+                        {user?.role === 'client' && (
+                          <Button
+                            variant="outline"
+                            disabled={cdSaving}
+                            onClick={requestReschedule}
+                          >
+                            Request reschedule
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           className="text-destructive border-destructive/40 hover:bg-destructive/10"
@@ -572,6 +707,17 @@ export default function AppointmentDetail() {
                           Reject appointment
                         </Button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Reschedule requested state */}
+                  {appt.client_decision === 'request_reschedule' && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        A reschedule has been requested.
+                        {appt.client_decision_note && <span> Note: {appt.client_decision_note}</span>}
+                        {' '}An operations user can update the time, which will trigger re-approval.
+                      </p>
                     </div>
                   )}
 
@@ -637,24 +783,24 @@ export default function AppointmentDetail() {
                   {ocError && (
                     <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{ocError}</div>
                   )}
-                  <RadioGroup value={ocOutcome} onValueChange={setOcOutcome} className="flex flex-wrap gap-x-6 gap-y-2">
-                    {[
-                      { value: 'showed', label: 'Showed' },
-                      { value: 'no_show', label: 'No-show' },
-                      { value: 'sold', label: 'Sold' },
-                      { value: 'not_sold', label: 'Not sold' },
-                      { value: 'reschedule_needed', label: 'Reschedule needed' },
-                    ].map(opt => (
-                      <div key={opt.value} className="flex items-center gap-2">
-                        <RadioGroupItem value={opt.value} id={`oc-${opt.value}`} />
-                        <Label htmlFor={`oc-${opt.value}`} className="font-normal cursor-pointer">{opt.label}</Label>
+                  {/* 1. Show status */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">1. Show status</Label>
+                    <RadioGroup value={ocShowStatus} onValueChange={setOcShowStatus} className="flex gap-6">
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="show" id="oc-show" />
+                        <Label htmlFor="oc-show" className="font-normal cursor-pointer">Show</Label>
                       </div>
-                    ))}
-                  </RadioGroup>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="no_show" id="oc-no-show" />
+                        <Label htmlFor="oc-no-show" className="font-normal cursor-pointer">No-show</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
 
-                  {ocOutcome === 'no_show' && (
+                  {ocShowStatus === 'no_show' && (
                     <div className="space-y-1">
-                      <Label className="text-sm">Reason <span className="text-destructive">*</span></Label>
+                      <Label className="text-sm">No-show reason</Label>
                       <Select value={ocNoShowReason} onValueChange={setOcNoShowReason}>
                         <SelectTrigger className="w-56 h-9">
                           <SelectValue placeholder="Select reason" />
@@ -668,7 +814,22 @@ export default function AppointmentDetail() {
                     </div>
                   )}
 
-                  {ocOutcome === 'sold' && (
+                  {/* 2. Sale status */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">2. Sale status</Label>
+                    <RadioGroup value={ocSaleStatus} onValueChange={setOcSaleStatus} className="flex gap-6">
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="sold" id="oc-sold" />
+                        <Label htmlFor="oc-sold" className="font-normal cursor-pointer">Sold</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="not_sold" id="oc-not-sold" />
+                        <Label htmlFor="oc-not-sold" className="font-normal cursor-pointer">Not sold</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {ocSaleStatus === 'sold' && (
                     <div className="flex flex-wrap gap-3">
                       <div className="space-y-1">
                         <Label className="text-sm">Sale amount (USD) <span className="text-destructive">*</span></Label>
@@ -723,7 +884,7 @@ export default function AppointmentDetail() {
 
                   <Button
                     size="sm"
-                    disabled={!ocOutcome || ocSaving}
+                    disabled={ocSaving}
                     onClick={saveOutcome}
                   >
                     {ocSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}

@@ -1,5 +1,5 @@
 const API_BASE = (typeof window !== 'undefined' && window.__LEAD_OPS_API_BASE)
-  || 'https://lead-ops-api-h67zx.ondigitalocean.app';
+  || (import.meta.env.DEV ? '' : 'https://lead-ops-api-h67zx.ondigitalocean.app');
 
 const TOKEN_KEY = 'leadops_jwt';
 
@@ -58,6 +58,7 @@ export const apiClient = {
   addConfirmation: (id, body) => request(`/api/appointments/${id}/confirmations`, { method: 'POST', body }),
   setClientDecision: (id, body) => request(`/api/appointments/${id}/client-decision`, { method: 'PATCH', body }),
   setOutcome: (id, body) => request(`/api/appointments/${id}/outcome`, { method: 'PATCH', body }),
+  rescheduleAppointment: (id, isoDate) => request(`/api/appointments/${id}`, { method: 'PATCH', body: { appointment_at: isoDate } }),
   redistribute: (id, body) => request(`/api/appointments/${id}/redistribute`, { method: 'POST', body }),
   setAdminPayout: (id, body) => request(`/api/appointments/${id}/admin`, { method: 'PATCH', body }),
   listMyLeads: () => request('/api/leads/my'),
