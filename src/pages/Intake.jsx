@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
 
 const RENOVATION_OPTIONS = [
@@ -93,9 +96,18 @@ function explainLeadError(err) {
 }
 
 export default function Intake() {
+  const { user } = useAuth();
   const [form, setForm] = useState(INITIAL);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Backend auto-scopes /api/agents to the caller's own client.
+  const agentsQuery = useQuery({
+    queryKey: ['agents', 'intake', user?.client_id ?? user?.clientId ?? null],
+    queryFn: () => apiClient.listAgents(),
+    enabled: !!user,
+  });
+  const agentOptions = (agentsQuery.data?.agents || []).filter(a => a.active);
 
   const setField = (name, value) => setForm(f => ({ ...f, [name]: value }));
 
@@ -171,13 +183,34 @@ export default function Intake() {
               {/* Basic info */}
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="caller_name">Your name (caller) *</Label>
-                  <Input
-                    id="caller_name"
-                    value={form.caller_name}
-                    onChange={e => setField('caller_name', e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="caller_name">Caller *</Label>
+                  {agentsQuery.isLoading && (
+                    <p className="text-xs text-muted-foreground">Loading callers…</p>
+                  )}
+                  {!agentsQuery.isLoading && agentOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No callers configured yet. Ask an admin to add one via{' '}
+                      {user?.role === 'admin'
+                        ? <Link to="/admin/callers" className="underline">/admin/callers</Link>
+                        : 'the Callers admin page'}.
+                    </p>
+                  )}
+                  {agentOptions.length > 0 && (
+                    <select
+                      id="caller_name"
+                      className="h-9 rounded-md border bg-background px-2 text-sm w-full"
+                      value={form.caller_name}
+                      onChange={e => setField('caller_name', e.target.value)}
+                      required
+                    >
+                      <option value="">Select caller…</option>
+                      {agentOptions.map(a => (
+                        <option key={a.id} value={a.name}>
+                          {a.name}{a.ext_id ? ` (${a.ext_id})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
