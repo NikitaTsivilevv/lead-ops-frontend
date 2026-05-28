@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import EditLeadDialog from '@/components/EditLeadDialog';
 import { apiClient } from '@/api/apiClient';
 
 function formatEastern(iso) {
@@ -15,6 +17,8 @@ export default function MyLeads() {
     queryKey: ['my-leads'],
     queryFn: () => apiClient.listMyLeads(),
   });
+
+  const [editing, setEditing] = useState(null); // { id, ...lead } or null
 
   const appointments = data?.appointments ?? [];
 
@@ -38,35 +42,54 @@ export default function MyLeads() {
         )}
 
         <div className="grid gap-3">
-          {appointments.map((a) => (
-            <Card key={a.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>{a.prospect_name}</span>
-                  <Badge
-                    variant={
-                      a.qualification === 'qualified' ? 'default'
-                      : a.qualification === 'disqualified' ? 'destructive'
-                      : 'secondary'
-                    }
-                  >
-                    {a.qualification}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-1">
-                <div>Appointment: {formatEastern(a.appointment_at)}</div>
-                <div>Address: {a.address}</div>
-                <div>Submitted: {formatEastern(a.created_at)}</div>
-              </CardContent>
-            </Card>
-          ))}
+          {appointments.map((a) => {
+            const editable = a.qualification === 'pending';
+            return (
+              <Card key={a.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between gap-3">
+                    <span>{a.prospect_name}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          a.qualification === 'qualified' ? 'default'
+                          : a.qualification === 'disqualified' ? 'destructive'
+                          : 'secondary'
+                        }
+                      >
+                        {a.qualification}
+                      </Badge>
+                      {editable && (
+                        <Button size="sm" variant="outline" onClick={() => setEditing(a)}>
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-1">
+                  <div>Appointment: {formatEastern(a.appointment_at)}</div>
+                  <div>Address: {a.address}</div>
+                  <div>Submitted: {formatEastern(a.created_at)}</div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <p className="text-xs text-muted-foreground pt-2">
-          This view is read-only. If you spot an error, ask the confirmation team to correct it.
+          You can edit a lead until the confirmation team marks it as qualified or disqualified.
+          After that, ask the confirmation team to make corrections.
         </p>
       </div>
+
+      {editing && (
+        <EditLeadDialog
+          lead={editing}
+          open={true}
+          onOpenChange={(open) => { if (!open) setEditing(null); }}
+        />
+      )}
     </div>
   );
 }
