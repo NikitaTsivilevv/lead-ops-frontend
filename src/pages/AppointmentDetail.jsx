@@ -42,11 +42,30 @@ function isoToDatetimeLocal(iso) {
   return `${parts.year}-${parts.month}-${parts.day}T${h}:${parts.minute}`;
 }
 
+// Minutes that America/New_York is behind UTC at the given UTC instant
+// (240 during EDT, 300 during EST). Derived from the actual tz database via
+// Intl, so DST transitions are handled correctly instead of guessed by month.
+function etOffsetMinutes(utcMs) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(utcMs)).reduce((a, p) => { a[p.type] = p.value; return a; }, {});
+  const localAsUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return (utcMs - localAsUTC) / 60000;
+}
+
+// Convert a datetime-local string ("YYYY-MM-DDTHH:mm"), interpreted as
+// America/New_York wall-clock time, to a UTC ISO string with correct DST.
 function datetimeLocalETToISO(val) {
   if (!val) return null;
-  const month = parseInt(val.split('-')[1], 10);
-  const offset = (month >= 3 && month <= 11) ? '-04:00' : '-05:00';
-  return new Date(`${val}:00${offset}`).toISOString();
+  const [datePart, timePart] = val.split('T');
+  const [y, mo, d] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  const wallAsUTC = Date.UTC(y, mo - 1, d, h, mi);
+  // Offset queried at the wall-as-UTC instant is accurate except within the
+  // ~1h DST transition window itself — far better than the old month heuristic.
+  return new Date(wallAsUTC + etOffsetMinutes(wallAsUTC) * 60000).toISOString();
 }
 
 function formatFullET(isoString) {
@@ -195,7 +214,7 @@ export default function AppointmentDetail() {
 
   const canEdit = user?.role !== 'client';
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
-  const showClientDecision = ['admin', 'operations', 'client'].includes(user?.role);
+  const showClientDecision = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
 
   const loadAppt = useCallback(async () => {
     setError('');
@@ -333,6 +352,22 @@ export default function AppointmentDetail() {
     }
   };
 
+  // Reopen a decided (e.g. rejected) appointment back to pending so it can be re-decided.
+  const reopenAppointment = async () => {
+    setCdError('');
+    setCdSaving(true);
+    try {
+      await apiClient.setClientDecision(id, { decision: 'pending' });
+      await loadAppt();
+      toast.success('Appointment reopened');
+    } catch (err) {
+      if (err.status === 403) setCdForbidden(true);
+      else setCdError(err.message || 'Failed to save.');
+    } finally {
+      setCdSaving(false);
+    }
+  };
+
   const saveCloser = async () => {
     setCdError('');
     setCdSaving(true);
@@ -444,7 +479,7 @@ export default function AppointmentDetail() {
 
   const qualColor = QUAL_COLORS[appt.qualification?.toLowerCase()] || QUAL_COLORS.pending;
   const outcomeColor = OUTCOME_COLORS[appt.outcome?.toLowerCase()] || OUTCOME_COLORS.pending;
-  const showOutcome = ['admin', 'operations', 'client'].includes(user?.role);
+  const showOutcome = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
   const apptPast = appt.appointment_at ? new Date(appt.appointment_at) < new Date() : false;
   const isRejected = appt.client_decision === 'rejected' || appt.client_decision === false;
 
@@ -533,8 +568,8 @@ export default function AppointmentDetail() {
           </CardContent>
         </Card>
 
-        {/* Reschedule panel — admin / operations only */}
-        {['admin', 'operations'].includes(user?.role) && (
+        {/* Reschedule panel — admin / operations / confirmation */}
+        {['admin', 'operations', 'confirmation'].includes(user?.role) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Change appointment time</CardTitle>
@@ -606,7 +641,7 @@ export default function AppointmentDetail() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <CardTitle className="text-base">Client decision</CardTitle>
+                <CardTitle className="text-base">Client Accept</CardTitle>
                 <Badge className={clientDecisionColor(appt.client_decision)}>
                   {clientDecisionLabel(appt.client_decision)}
                 </Badge>
@@ -727,10 +762,18 @@ export default function AppointmentDetail() {
 
                   {/* Rejected state */}
                   {(appt.client_decision === 'rejected' || appt.client_decision === false) && (
-                    <div className="space-y-1">
+                    <div className="space-y-3">
                       <p className="text-sm text-muted-foreground">
-                        An operations user can redistribute this appointment to another client.
+                        This appointment was rejected. Reopen it to decide again, or redistribute it to another client.
                       </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={cdSaving}
+                        onClick={reopenAppointment}
+                      >
+                        {cdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reopen'}
+                      </Button>
                     </div>
                   )}
                 </>
@@ -871,7 +914,7 @@ export default function AppointmentDetail() {
         )}
 
         {/* Redistribute panel */}
-        {['admin', 'operations'].includes(user?.role) && (
+        {['admin', 'operations', 'confirmation'].includes(user?.role) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Redistribute to another client</CardTitle>

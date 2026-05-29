@@ -119,6 +119,7 @@ export default function Calendar() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
   const [view, setView] = useState('table'); // 'table' | 'calendar'

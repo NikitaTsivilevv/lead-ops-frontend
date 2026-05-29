@@ -7,6 +7,19 @@ function formatEastern(iso) {
   return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York' });
 }
 
+// Per-role visual cue so it's easy to tell at a glance who did what.
+const ROLE_STYLE = {
+  admin:        { emoji: '🛡️', border: 'border-purple-400' },
+  operations:   { emoji: '⚙️', border: 'border-blue-400' },
+  confirmation: { emoji: '✅', border: 'border-teal-400' },
+  client:       { emoji: '🏠', border: 'border-amber-400' },
+  caller:       { emoji: '📞', border: 'border-sky-400' },
+};
+
+function roleStyle(role) {
+  return ROLE_STYLE[role] || { emoji: '🤖', border: 'border-muted' };
+}
+
 const FIELD_LABEL = {
   qualification: 'qualification',
   qualification_note: 'qualification note',
@@ -111,12 +124,15 @@ export default function AuditLogPanel({ appointmentId }) {
         )}
         {history.length > 0 && (
           <ul className="space-y-2">
-            {history.map((e) => (
-              <li key={e.id} className="border-l-2 border-muted pl-3">
-                <div>{describe(e)}</div>
-                <div className="text-xs text-muted-foreground">{formatEastern(e.changed_at)}</div>
-              </li>
-            ))}
+            {history.map((e) => {
+              const rs = roleStyle(e.changed_by_role);
+              return (
+                <li key={e.id} className={`border-l-2 ${rs.border} pl-3`}>
+                  <div><span className="mr-1" aria-hidden="true">{rs.emoji}</span>{describe(e)}</div>
+                  <div className="text-xs text-muted-foreground">{formatEastern(e.changed_at)}</div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
