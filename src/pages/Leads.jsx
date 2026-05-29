@@ -49,6 +49,26 @@ function StatusBadge({ value, colorMap }) {
   );
 }
 
+const CD_LABELS = {
+  pending: 'Pending', accepted: 'Accepted', auto_accepted: 'Auto-accepted',
+  rejected: 'Rejected', request_reschedule: 'Reschedule req.', pending_reapproval: 'Re-approval',
+};
+const CD_COLORS = {
+  accepted: 'bg-green-100 text-green-800', auto_accepted: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+  request_reschedule: 'bg-orange-100 text-orange-800', pending_reapproval: 'bg-orange-100 text-orange-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+};
+function ClientDecisionBadge({ value }) {
+  if (value == null) return <span className="text-muted-foreground">—</span>;
+  const cls = CD_COLORS[value] || 'bg-secondary text-secondary-foreground';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {CD_LABELS[value] || value}
+    </span>
+  );
+}
+
 const EMPTY_FILTERS = { qualification: '', outcome: '', from: '', to: '' };
 
 export default function Leads() {
@@ -90,16 +110,28 @@ export default function Leads() {
       key: 'appointment_at',
       header: 'Date (ET)',
       headerClassName: 'whitespace-nowrap',
+      sortable: true,
+      sortValue: (row) => (row.appointment_at ? Date.parse(row.appointment_at) : null),
       cell: (row) => <span className="whitespace-nowrap text-sm">{formatET(row.appointment_at)}</span>,
+    },
+    {
+      key: 'created_at',
+      header: 'Created (ET)',
+      headerClassName: 'whitespace-nowrap',
+      sortable: true,
+      sortValue: (row) => (row.created_at ? Date.parse(row.created_at) : null),
+      cell: (row) => <span className="whitespace-nowrap text-sm text-muted-foreground">{formatET(row.created_at)}</span>,
     },
     {
       key: 'prospect_name',
       header: 'Prospect',
+      sortable: true,
       cell: (row) => <span className="font-medium text-sm">{row.prospect_name || '—'}</span>,
     },
     {
       key: 'address',
       header: 'Address',
+      sortable: true,
       cell: (row) => <span className="text-sm">{row.address || '—'}</span>,
     },
     {
@@ -114,7 +146,15 @@ export default function Leads() {
     {
       key: 'qualification',
       header: 'Qualification',
+      sortable: true,
       cell: (row) => <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />,
+    },
+    {
+      key: 'client_decision',
+      header: 'Client decision',
+      sortable: true,
+      sortValue: (row) => row.client_decision || '',
+      cell: (row) => <ClientDecisionBadge value={row.client_decision} />,
     },
     {
       key: 'confirmations',
@@ -124,11 +164,14 @@ export default function Leads() {
     {
       key: 'outcome',
       header: 'Outcome',
+      sortable: true,
       cell: (row) => <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />,
     },
     ...(!isClient ? [{
       key: 'agent_id',
       header: 'Agent',
+      sortable: true,
+      sortValue: (row) => row.agent_id || 0,
       cell: (row) => <span className="text-sm text-muted-foreground">{row.agent_id ? `#${row.agent_id}` : '—'}</span>,
     }] : []),
   ];
@@ -213,6 +256,7 @@ export default function Leads() {
             ) : !error && (
               <DataTable
                 columns={columns}
+                columnToggleId="appointments"
                 rows={rows.filter((r) => {
                   if (!search.trim()) return true;
                   const q = search.trim().toLowerCase();
