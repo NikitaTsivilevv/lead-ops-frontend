@@ -41,11 +41,30 @@ function isoToDatetimeLocal(iso) {
   return `${parts.year}-${parts.month}-${parts.day}T${h}:${parts.minute}`;
 }
 
+// Minutes that America/New_York is behind UTC at the given UTC instant
+// (240 during EDT, 300 during EST). Derived from the actual tz database via
+// Intl, so DST transitions are handled correctly instead of guessed by month.
+function etOffsetMinutes(utcMs) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(utcMs)).reduce((a, p) => { a[p.type] = p.value; return a; }, {});
+  const localAsUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return (utcMs - localAsUTC) / 60000;
+}
+
+// Convert a datetime-local string ("YYYY-MM-DDTHH:mm"), interpreted as
+// America/New_York wall-clock time, to a UTC ISO string with correct DST.
 function datetimeLocalETToISO(val) {
   if (!val) return null;
-  const month = parseInt(val.split('-')[1], 10);
-  const offset = (month >= 3 && month <= 11) ? '-04:00' : '-05:00';
-  return new Date(`${val}:00${offset}`).toISOString();
+  const [datePart, timePart] = val.split('T');
+  const [y, mo, d] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  const wallAsUTC = Date.UTC(y, mo - 1, d, h, mi);
+  // Offset queried at the wall-as-UTC instant is accurate except within the
+  // ~1h DST transition window itself — far better than the old month heuristic.
+  return new Date(wallAsUTC + etOffsetMinutes(wallAsUTC) * 60000).toISOString();
 }
 
 function formatFullET(isoString) {
@@ -75,7 +94,6 @@ const OUTCOME_COLORS = {
 function clientDecisionColor(val) {
   if (val === true || val === 'accepted' || val === 'auto_accepted') return 'bg-green-100 text-green-800';
   if (val === false || val === 'rejected') return 'bg-red-100 text-red-800';
-  if (val === 'auto-accepted') return 'bg-blue-100 text-blue-800';
   if (val === 'request_reschedule' || val === 'pending_reapproval') return 'bg-orange-100 text-orange-800';
   return 'bg-muted text-muted-foreground';
 }
@@ -84,7 +102,7 @@ function clientDecisionLabel(val) {
   if (val === null || val === undefined) return 'Pending';
   if (val === true || val === 'accepted') return 'Accepted';
   if (val === false || val === 'rejected') return 'Rejected';
-  if (val === 'auto_accepted' || val === 'auto-accepted') return 'Auto-accepted';
+  if (val === 'auto_accepted') return 'Auto-accepted';
   if (val === 'request_reschedule') return 'Reschedule requested';
   if (val === 'pending_reapproval') return 'Pending re-approval';
   return String(val);
