@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { apiClient } from '@/api/apiClient';
+import DataTable from '@/components/DataTable';
+import Searchbar from '@/components/Searchbar';
 
 export default function AdminClients() {
   const qc = useQueryClient();
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => apiClient.listClients() });
   const [form, setForm] = useState({ name: '', slug: '' });
+  const [search, setSearch] = useState('');
 
   const createMut = useMutation({
     mutationFn: () => apiClient.createClient({ name: form.name, slug: form.slug }),
@@ -35,6 +38,12 @@ export default function AdminClients() {
     onError: (err) => toast.error(err?.payload?.message || err.message || 'Failed'),
   });
 
+  const columns = [
+    { key: 'name', header: 'Name', cell: (c) => c.name },
+    { key: 'slug', header: 'Slug', cell: (c) => <span className="font-mono text-xs">{c.slug}</span> },
+    { key: 'active', header: 'Active', cell: (c) => (c.active ? 'Yes' : 'No') },
+  ];
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-[1100px] mx-auto space-y-6">
@@ -44,28 +53,20 @@ export default function AdminClients() {
           <CardHeader>
             <CardTitle className="text-base">Add client</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
             <div className="space-y-1.5">
               <Label>Name *</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Slug *</Label>
               <Input
                 placeholder="lowercase-with-dashes"
                 value={form.slug}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, slug: e.target.value.toLowerCase() }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase() }))}
               />
             </div>
-            <Button
-              onClick={() => createMut.mutate()}
-              disabled={!form.name || !form.slug || createMut.isPending}
-            >
+            <Button onClick={() => createMut.mutate()} disabled={!form.name || !form.slug || createMut.isPending}>
               {createMut.isPending ? 'Creating…' : 'Create'}
             </Button>
           </CardContent>
@@ -75,42 +76,56 @@ export default function AdminClients() {
           <CardHeader>
             <CardTitle className="text-base">All clients</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <Searchbar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name or slug…"
+            />
             {clients.isLoading && <p className="text-muted-foreground">Loading…</p>}
             {clients.isError && <p className="text-destructive">Failed to load clients</p>}
-            {!clients.isLoading && !clients.isError && (clients.data?.clients?.length ?? 0) === 0 && (
-              <p className="text-sm text-muted-foreground italic">No clients yet.</p>
-            )}
-            {(clients.data?.clients?.length ?? 0) > 0 && (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-muted-foreground border-b">
-                    <th className="py-2">Name</th>
-                    <th>Slug</th>
-                    <th>Active</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(clients.data?.clients || []).map((c) => (
-                    <tr key={c.id} className="border-b last:border-0">
-                      <td className="py-2">{c.name}</td>
-                      <td>{c.slug}</td>
-                      <td>{c.active ? 'Yes' : 'No'}</td>
-                      <td className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleActive.mutate({ id: c.id, active: !c.active })}
-                          disabled={toggleActive.isPending}
-                        >
-                          {c.active ? 'Deactivate' : 'Activate'}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {!clients.isLoading && !clients.isError && (
+              <DataTable
+                columns={columns}
+                rows={(clients.data?.clients || []).filter((c) => {
+                  if (!search.trim()) return true;
+                  const q = search.trim().toLowerCase();
+                  return [c.name, c.slug].some((v) => v && String(v).toLowerCase().includes(q));
+                })}
+                emptyMessage="No clients yet."
+                actions={(c) => (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleActive.mutate({ id: c.id, active: !c.active })}
+                    disabled={toggleActive.isPending}
+                  >
+                    {c.active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                )}
+                mobileCard={(c) => (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{c.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{c.slug}</p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${c.active ? 'bg-green-100 text-green-800' : 'bg-muted text-muted-foreground'}`}>
+                        {c.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={(e) => { e.stopPropagation(); toggleActive.mutate({ id: c.id, active: !c.active }); }}
+                      disabled={toggleActive.isPending}
+                    >
+                      {c.active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  </>
+                )}
+              />
             )}
           </CardContent>
         </Card>

@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
 import BillingSection from '@/components/BillingSection';
+import { Badge, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -90,31 +91,6 @@ const OUTCOME_COLORS = {
   'reschedule needed': 'bg-orange-100 text-orange-800',
   pending: 'bg-muted text-muted-foreground',
 };
-
-function clientDecisionColor(val) {
-  if (val === true || val === 'accepted' || val === 'auto_accepted') return 'bg-green-100 text-green-800';
-  if (val === false || val === 'rejected') return 'bg-red-100 text-red-800';
-  if (val === 'request_reschedule' || val === 'pending_reapproval') return 'bg-orange-100 text-orange-800';
-  return 'bg-muted text-muted-foreground';
-}
-
-function clientDecisionLabel(val) {
-  if (val === null || val === undefined) return 'Pending';
-  if (val === true || val === 'accepted') return 'Accepted';
-  if (val === false || val === 'rejected') return 'Rejected';
-  if (val === 'auto_accepted') return 'Auto-accepted';
-  if (val === 'request_reschedule') return 'Reschedule requested';
-  if (val === 'pending_reapproval') return 'Pending re-approval';
-  return String(val);
-}
-
-function Badge({ children, className }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
-      {children}
-    </span>
-  );
-}
 
 function YesNo({ value }) {
   if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>;
@@ -603,10 +579,10 @@ export default function AppointmentDetail() {
                 <Label className="text-sm">
                   Date & time <span className="text-xs text-muted-foreground">(Eastern Time)</span>
                 </Label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="datetime-local"
-                    className="h-9 w-auto"
+                    className="h-9 flex-1 min-w-[200px]"
                     value={rescheduleIso}
                     onChange={e => setRescheduleIso(e.target.value)}
                   />
@@ -994,13 +970,18 @@ export default function AppointmentDetail() {
             <CardContent className="space-y-4">
               {confRows.map(row => (
                 <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
-                  <p className="text-sm font-medium">{row.label}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{row.label}</p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
+                    </span>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Select
                       value={row.status}
                       onValueChange={v => updateConfRow(row.stage, 'status', v)}
                     >
-                      <SelectTrigger className="w-36 h-8 text-sm">
+                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1013,19 +994,16 @@ export default function AppointmentDetail() {
                       placeholder="Note"
                       value={row.note}
                       onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
-                      className="h-8 text-sm w-48 flex-1"
+                      className="h-8 text-sm flex-1 min-w-[120px]"
                     />
                     <Button
                       size="sm"
-                      className="h-8"
+                      className="h-8 shrink-0"
                       disabled={confSaving[row.stage] || !canEdit}
                       onClick={() => saveConfirmation(row.stage, row.status, row.note)}
                     >
                       {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
                     </Button>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
-                    </span>
                   </div>
                 </div>
               ))}

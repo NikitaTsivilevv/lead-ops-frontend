@@ -89,3 +89,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── FullCalendar mobile tweaks ─────────────────────────────── */
+@media (max-width: 767px) {
+  /* Shrink toolbar buttons so they fit on one line */
+  .fc .fc-button {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Shrink the month/week title */
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+
+  /* Keep toolbar items from wrapping */
+  .fc .fc-toolbar {
+    gap: 0.25rem !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* List view rows — more breathing room on touch */
+  .fc .fc-list-event td {
+    padding: 0.5rem 0.5rem !important;
+  }
+
+  /* Tighten day-grid cells */
+  .fc .fc-daygrid-day-number {
+    font-size: 0.75rem !important;
+    padding: 2px 4px !important;
+  }
+
+  .fc .fc-col-header-cell-cushion {
+    font-size: 0.7rem !important;
+    padding: 2px 2px !important;
+  }
+}

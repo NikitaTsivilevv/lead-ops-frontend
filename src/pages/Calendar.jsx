@@ -11,7 +11,12 @@ import { Loader2, RefreshCw, CalendarDays, LayoutList, Calendar as CalendarIcon,
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import { useIsMobile } from '@/hooks/use-mobile';
+import Searchbar from '@/components/Searchbar';
+import TablePagination from '@/components/TablePagination';
+import { Badge, QUAL_BADGE, SHOW_STATUS_BADGE, SALE_STATUS_BADGE, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
 const TZ = 'America/New_York';
 
@@ -68,46 +73,6 @@ function buildDayRange(from, to) {
   return days;
 }
 
-function Badge({ children, className }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className || ''}`}>
-      {children}
-    </span>
-  );
-}
-
-const STATUS_COLORS = {
-  confirmed: '#22c55e',
-  pending: '#f59e0b',
-  cancelled: '#ef4444',
-  completed: '#6366f1',
-};
-
-const QUAL_BADGE = {
-  qualified: 'bg-green-100 text-green-800',
-  disqualified: 'bg-red-100 text-red-800',
-};
-const OUTCOME_BADGE = {
-  sold: 'bg-green-100 text-green-800',
-  not_sold: 'bg-red-100 text-red-800',
-  showed: 'bg-blue-100 text-blue-800',
-  no_show: 'bg-gray-100 text-gray-700',
-  reschedule_needed: 'bg-orange-100 text-orange-800',
-};
-
-function clientDecisionColor(val) {
-  if (val === true || val === 'accepted') return 'bg-green-100 text-green-800';
-  if (val === false || val === 'rejected') return 'bg-red-100 text-red-800';
-  if (val === 'auto-accepted') return 'bg-blue-100 text-blue-800';
-  return 'bg-muted text-muted-foreground';
-}
-function clientDecisionLabel(val) {
-  if (val === null || val === undefined) return 'Pending';
-  if (val === true || val === 'accepted') return 'Accepted';
-  if (val === false || val === 'rejected') return 'Rejected';
-  if (val === 'auto-accepted') return 'Auto-accepted';
-  return String(val);
-}
 function formatFullDateTime(iso) {
   if (!iso) return '—';
   return new Intl.DateTimeFormat('en-US', {
@@ -131,8 +96,14 @@ function ModalRow({ label, children }) {
 
 function apptToEvent(a) {
   if (!a?.appointment_at) return null;
-  const outcome = a.outcome || 'pending';
-  const color = STATUS_COLORS[outcome] || '#6366f1';
+  let color = '#94a3b8';
+  if (a.sale_status === 'sold') color = '#16a34a';
+  else if (a.show_status === 'no_show') color = '#dc2626';
+  else if (a.sale_status === 'not_sold') color = '#84cc16';
+  else if (a.show_status === 'show') color = '#22c55e';
+  else if (a.client_decision === 'accepted' || a.client_decision === 'auto_accepted') color = '#6366f1';
+  else if (a.qualification === 'disqualified') color = '#ef4444';
+  else if (a.qualification === 'qualified') color = '#3b82f6';
   return {
     id: String(a.id),
     title: a.prospect_name || 'Appointment',
@@ -146,9 +117,9 @@ function apptToEvent(a) {
 export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // Non-client-scoped staff must send a client_id to the calendar/availability API
-  // (confirmation included — otherwise the backend returns client_id_required).
-  const isAdminOps = user && ['admin', 'operations', 'confirmation'].includes(user.role);
+  const isMobile = useIsMobile();
+  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
   const [view, setView] = useState('table'); // 'table' | 'calendar'
@@ -161,6 +132,9 @@ export default function Calendar() {
   const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState('');
   const [selectedAppt, setSelectedAppt] = useState(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchData = useCallback(async (f, t, cid, isFirst) => {
     setError('');
@@ -220,6 +194,27 @@ export default function Calendar() {
 
   const days = buildDayRange(from, to);
 
+  useEffect(() => { setPage(0); }, [search, from, to]);
+
+  const searchLower = search.trim().toLowerCase();
+  const filteredApptsByDay = searchLower
+    ? Object.fromEntries(
+        Object.entries(apptsByDay).map(([day, appts]) => [
+          day,
+          appts.filter((a) =>
+            [a.prospect_name, a.address, a.phone, a.assigned_closer, a.campaign_source, a.qualification, a.outcome]
+              .some((v) => v && String(v).toLowerCase().includes(searchLower))
+          ),
+        ])
+      )
+    : apptsByDay;
+  const visibleDays = searchLower
+    ? days.filter((day) => (filteredApptsByDay[day] || []).length > 0)
+    : days;
+
+  const totalPages = Math.ceil(visibleDays.length / pageSize);
+  const pagedDays = visibleDays.slice(page * pageSize, (page + 1) * pageSize);
+
   const calendarEvents = (data.appointments || [])
     .map(apptToEvent)
     .filter(Boolean);
@@ -239,64 +234,65 @@ export default function Calendar() {
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-[1000px] mx-auto space-y-5">
         {/* Page title row */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">Calendar</h1>
           {showEditAvailability && (
-            <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate('/calendar/availability')}>
-              <CalendarDays className="w-4 h-4" /> Edit availability
+            <Button size="sm" variant="outline" className="h-9 gap-1.5 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/calendar/availability')}>
+              <CalendarDays className="w-4 h-4 text-white" />
+              <span className="hidden sm:inline text-white">Edit availability</span>
+              <span className="sm:hidden">Availability</span>
             </Button>
           )}
         </div>
-
+          
         {/* Controls toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-9 gap-2 font-normal min-w-[210px] justify-start">
-                  <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-sm">
-                    {view === 'table'
-                      ? (from && to ? `${formatDisplayDate(fromYMD(from))} – ${formatDisplayDate(fromYMD(to))}` : 'Select date range')
-                      : (from ? formatDisplayDate(fromYMD(from)) : 'Jump to date')}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode={view === 'table' ? 'range' : 'single'}
-                  selected={view === 'table' ? { from: fromYMD(from), to: fromYMD(to) } : fromYMD(from)}
-                  onSelect={(val) => {
-                    if (view === 'calendar') {
-                      if (val) {
-                        const ymd = toYMD(val);
-                        setFrom(ymd);
-                        calendarRef.current?.getApi().gotoDate(ymd);
-                        setCalendarOpen(false);
-                      }
-                    } else {
-                      if (val?.from) setFrom(toYMD(val.from));
-                      if (val?.to) { setTo(toYMD(val.to)); setCalendarOpen(false); }
-                      else if (val?.from) setTo('');
+        <div className="flex flex-wrap items-center gap-3 ">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-9 gap-2 font-normal min-w-0 flex-1 sm:flex-none sm:min-w-[210px] justify-start">
+                <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-sm truncate">
+                  {view === 'table'
+                    ? (from && to ? `${formatDisplayDate(fromYMD(from))} – ${formatDisplayDate(fromYMD(to))}` : 'Select range')
+                    : (from ? formatDisplayDate(fromYMD(from)) : 'Jump to date')}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarPicker
+                mode={view === 'table' ? 'range' : 'single'}
+                selected={view === 'table' ? { from: fromYMD(from), to: fromYMD(to) } : fromYMD(from)}
+                onSelect={(val) => {
+                  if (view === 'calendar') {
+                    if (val) {
+                      const ymd = toYMD(val);
+                      setFrom(ymd);
+                      calendarRef.current?.getApi().gotoDate(ymd);
+                      setCalendarOpen(false);
                     }
-                  }}
-                  numberOfMonths={2}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Button size="sm" variant="outline" className="h-9" onClick={handleToday}>Today</Button>
-            <Button
-              size="sm" variant="outline" className="h-9 gap-1.5"
-              onClick={() => fetchData(from, to, clientId, false)}
-              disabled={refetching}
-            >
-              {refetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Refresh
-            </Button>
-          </div>
+                  } else {
+                    if (val?.from) setFrom(toYMD(val.from));
+                    if (val?.to) { setTo(toYMD(val.to)); setCalendarOpen(false); }
+                    else if (val?.from) setTo('');
+                  }
+                }}
+                numberOfMonths={1}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
 
-          <div className="flex rounded-md border border-input overflow-hidden">
+          <Button size="sm" variant="outline" className="h-9" onClick={handleToday}>Today</Button>
+          <Button
+            size="sm" variant="outline" className="h-9 gap-1.5"
+            onClick={() => fetchData(from, to, clientId, false)}
+            disabled={refetching}
+          >
+            {refetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+
+          <div className="flex rounded-md border border-input overflow-hidden ml-auto">
             <button
               onClick={() => setView('table')}
               className={`flex items-center gap-1.5 px-3 h-9 text-sm transition-colors ${
@@ -306,7 +302,7 @@ export default function Calendar() {
               }`}
             >
               <LayoutList className="w-3.5 h-3.5" />
-              Table
+              <span className="hidden sm:inline">Table</span>
             </button>
             <button
               onClick={() => setView('calendar')}
@@ -317,7 +313,7 @@ export default function Calendar() {
               }`}
             >
               <CalendarIcon className="w-3.5 h-3.5" />
-              Calendar
+              <span className="hidden sm:inline">Calendar</span>
             </button>
           </div>
         </div>
@@ -333,22 +329,41 @@ export default function Calendar() {
         ) : view === 'calendar' ? (
           <>
           <Card>
-            <CardContent className="pt-4 pb-4">
+            <CardContent className="pt-4 pb-2 px-2 sm:px-6 sm:pb-4">
               <FullCalendar
                 ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
+                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+                initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
                 timeZone={TZ}
-                headerToolbar={{
+                headerToolbar={isMobile ? {
+                  left: 'prev,next',
+                  center: 'title',
+                  right: 'listWeek,timeGridDay',
+                } : {
                   left: 'prev,next today',
                   center: 'title',
                   right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                }}
+                views={{
+                  listWeek: { buttonText: 'Week list' },
+                  timeGridDay: { buttonText: 'Day' },
                 }}
                 events={calendarEvents}
                 eventClick={handleEventClick}
                 datesSet={handleDatesSet}
                 height="auto"
                 eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: true }}
+                dayMaxEvents={isMobile ? 2 : true}
+                moreLinkContent={(args) => `+${args.num} more`}
+                windowResize={(arg) => {
+                  const mobile = window.innerWidth < 768;
+                  const currentView = arg.view.type;
+                  if (mobile && (currentView === 'dayGridMonth' || currentView === 'timeGridWeek')) {
+                    arg.view.calendar.changeView('listWeek');
+                  } else if (!mobile && currentView === 'listWeek') {
+                    arg.view.calendar.changeView('dayGridMonth');
+                  }
+                }}
               />
             </CardContent>
           </Card>
@@ -370,10 +385,18 @@ export default function Calendar() {
                       <span className="text-[10px] uppercase tracking-wide opacity-60 mr-1">Decision</span>
                       {clientDecisionLabel(selectedAppt.client_decision)}
                     </Badge>
-                    <Badge className={OUTCOME_BADGE[selectedAppt.outcome] || 'bg-muted text-muted-foreground'}>
-                      <span className="text-[10px] uppercase tracking-wide opacity-60 mr-1">Outcome</span>
-                      {(selectedAppt.outcome || 'pending').replace(/_/g, ' ')}
-                    </Badge>
+                    {selectedAppt.show_status && (
+                      <Badge className={SHOW_STATUS_BADGE[selectedAppt.show_status] || 'bg-muted text-muted-foreground'}>
+                        <span className="text-[10px] uppercase tracking-wide opacity-60 mr-1">Show</span>
+                        {selectedAppt.show_status.replace(/_/g, ' ')}
+                      </Badge>
+                    )}
+                    {selectedAppt.sale_status && (
+                      <Badge className={SALE_STATUS_BADGE[selectedAppt.sale_status] || 'bg-muted text-muted-foreground'}>
+                        <span className="text-[10px] uppercase tracking-wide opacity-60 mr-1">Sale</span>
+                        {selectedAppt.sale_status.replace(/_/g, ' ')}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="space-y-2 text-sm">
@@ -432,16 +455,26 @@ export default function Calendar() {
         ) : days.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground text-sm">"From" date must be ≤ "To" date.</div>
         ) : (
+          <>
+          <Searchbar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search appointments…"
+          />
+          {visibleDays.length === 0 ? (
+            <div className="py-20 text-center text-muted-foreground text-sm">No appointments match "{search}"</div>
+          ) : (
+          <>
           <div className="flex flex-col gap-3">
-            {days.map((day) => {
+            {pagedDays.map((day) => {
               const daySlots = slotsByDay[day] || [];
-              const dayAppts = apptsByDay[day] || [];
+              const dayAppts = filteredApptsByDay[day] || [];
               return (
                 <Card key={day}>
                   <CardContent className="pt-4 pb-4 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-sm font-semibold">{formatDayHeader(day)}</span>
-                      <div className="flex flex-wrap gap-1.5 justify-end">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
+                      <span className="text-sm font-semibold shrink-0">{formatDayHeader(day)}</span>
+                      <div className="flex flex-wrap gap-1.5">
                         {daySlots.length === 0 ? (
                           <span className="text-xs text-muted-foreground">Closed</span>
                         ) : daySlots.map((s, i) => (
@@ -464,9 +497,10 @@ export default function Calendar() {
                             <span className="text-sm text-muted-foreground w-16 shrink-0">{formatTime(a.appointment_at)}</span>
                             <span className="text-sm font-medium flex-1 min-w-[120px]">{a.prospect_name || '—'}</span>
                             <div className="flex flex-wrap gap-1.5">
-                              <Badge className="bg-muted text-muted-foreground">{a.qualification || 'pending'}</Badge>
-                              <Badge className="bg-muted text-muted-foreground">{a.client_decision || 'pending'}</Badge>
-                              <Badge className="bg-muted text-muted-foreground">{(a.outcome || 'pending').replace(/_/g, ' ')}</Badge>
+                              <Badge className={QUAL_BADGE[a.qualification] || 'bg-muted text-muted-foreground'}>{a.qualification || 'pending'}</Badge>
+                              <Badge className={clientDecisionColor(a.client_decision)}>{clientDecisionLabel(a.client_decision)}</Badge>
+                              {a.show_status && <Badge className={SHOW_STATUS_BADGE[a.show_status] || 'bg-muted text-muted-foreground'}>{a.show_status.replace(/_/g, ' ')}</Badge>}
+                              {a.sale_status && <Badge className={SALE_STATUS_BADGE[a.sale_status] || 'bg-muted text-muted-foreground'}>{a.sale_status.replace(/_/g, ' ')}</Badge>}
                             </div>
                           </div>
                         ))}
@@ -477,6 +511,16 @@ export default function Calendar() {
               );
             })}
           </div>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+          </>
+          )}
+          </>
         )}
       </div>
     </div>

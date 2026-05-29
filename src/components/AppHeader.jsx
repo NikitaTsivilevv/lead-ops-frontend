@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { LogOut, Menu } from 'lucide-react';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -12,116 +13,110 @@ const ROLE_LABELS = {
   caller: 'Caller',
 };
 
+function NavLinks({ user, onClick }) {
+  const linkClass = ({ isActive }) =>
+    `block px-3 py-2 rounded-md text-sm transition-colors ${
+      isActive
+        ? 'text-foreground font-medium bg-muted'
+        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+    }`;
+
+  return (
+    <>
+      {user.role !== 'caller' && (
+        <NavLink to="/pipeline" className={linkClass} onClick={onClick}>Pipeline</NavLink>
+      )}
+      {user.role !== 'caller' && (
+        <NavLink to="/calendar" className={linkClass} onClick={onClick}>Calendar</NavLink>
+      )}
+      {user.role !== 'caller' && (
+        <NavLink to="/leads" className={linkClass} onClick={onClick}>Leads</NavLink>
+      )}
+      {['admin', 'operations', 'confirmation'].includes(user.role) && (
+        <NavLink to="/confirmation" className={linkClass} onClick={onClick}>Confirmation</NavLink>
+      )}
+      {user.role === 'caller' && (
+        <NavLink to="/intake" className={linkClass} onClick={onClick}>New lead</NavLink>
+      )}
+      {user.role === 'caller' && (
+        <NavLink to="/my-leads" className={linkClass} onClick={onClick}>My Leads</NavLink>
+      )}
+      {user.role === 'admin' && (
+        <>
+          <NavLink to="/admin/clients" className={linkClass} onClick={onClick}>Clients</NavLink>
+          <NavLink to="/admin/callers" className={linkClass} onClick={onClick}>Callers</NavLink>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function AppHeader() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   if (!user) return null;
+
   return (
-    <header className="border-b bg-background sticky top-0 z-30">
-      <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="font-semibold tracking-tight hover:opacity-80">
+    <header className="border-b bg-background sticky top-0 z-30 bg-white shadow-md">
+      <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center gap-3">
+        <Link to="/" className="font-semibold tracking-tight hover:opacity-80 shrink-0">
           lead-ops
         </Link>
 
-        {/* Role-aware nav */}
-        <nav className="flex items-center gap-1 ml-4">
-          {user.role !== 'caller' && (
-            <NavLink
-              to="/pipeline"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              Pipeline
-            </NavLink>
-          )}
-          {user.role !== 'caller' && (
-            <NavLink
-              to="/calendar"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              Calendar
-            </NavLink>
-          )}
-          {user.role !== 'caller' && (
-            <NavLink
-              to="/leads"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              Leads
-            </NavLink>
-          )}
-          {['admin', 'operations', 'confirmation'].includes(user.role) && (
-            <NavLink
-              to="/confirmation"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              Confirmation
-            </NavLink>
-          )}
-          {user.role === 'caller' && (
-            <NavLink
-              to="/intake"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              New lead
-            </NavLink>
-          )}
-          {user.role === 'caller' && (
-            <NavLink
-              to="/my-leads"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-              }
-            >
-              My Leads
-            </NavLink>
-          )}
-          {user.role === 'admin' && (
-            <>
-              <NavLink
-                to="/admin/clients"
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-                }
-              >
-                Clients
-              </NavLink>
-              <NavLink
-                to="/admin/callers"
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-md text-sm transition-colors ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`
-                }
-              >
-                Callers
-              </NavLink>
-            </>
-          )}
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-0.5 ml-2 flex-1">
+          <NavLinks user={user} />
         </nav>
 
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-muted-foreground">
-            <span className="hidden sm:inline">{user.email}</span>
-            <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="hidden lg:inline truncate max-w-[180px]">{user.email}</span>
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium shrink-0">
               {ROLE_LABELS[user.role] || user.role}
             </span>
           </div>
           <Button
             variant="outline"
             size="sm"
+            className="hidden sm:flex"
             onClick={() => { logout(); navigate('/login'); }}
           >
             <LogOut className="w-4 h-4 mr-1" />
             Sign out
           </Button>
+
+          {/* Mobile hamburger */}
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden h-9 w-9">
+                <Menu className="w-4 h-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64 p-0 flex flex-col">
+              <div className="p-4 border-b shrink-0">
+                <div className="text-sm font-medium truncate">{user.email}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {ROLE_LABELS[user.role] || user.role}
+                </div>
+              </div>
+              <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">
+                <NavLinks user={user} onClick={() => setMobileOpen(false)} />
+              </nav>
+              <div className="p-3 border-t shrink-0">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => { setMobileOpen(false); logout(); navigate('/login'); }}
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
