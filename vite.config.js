@@ -8,9 +8,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://lead-ops-api-h67zx.ondigitalocean.app',
+        // Dev-server proxy target. Defaults to the LOCAL backend so `npm run dev`
+        // never writes into the production database. To point dev at a remote
+        // backend (e.g. staging), set VITE_DEV_API_TARGET in your shell, e.g.
+        //   VITE_DEV_API_TARGET=https://lead-ops-api-h67zx.ondigitalocean.app npm run dev
+        target: process.env.VITE_DEV_API_TARGET || 'http://localhost:3001',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },
