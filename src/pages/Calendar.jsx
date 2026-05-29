@@ -118,7 +118,9 @@ export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+  // confirmation included: non-client-scoped staff must send client_id to the
+  // calendar/availability API, else the backend returns client_id_required.
+  const isAdminOps = user && ['admin', 'operations', 'confirmation'].includes(user.role);
 
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
