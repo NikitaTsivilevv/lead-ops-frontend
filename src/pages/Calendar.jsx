@@ -146,7 +146,9 @@ function apptToEvent(a) {
 export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+  // Non-client-scoped staff must send a client_id to the calendar/availability API
+  // (confirmation included — otherwise the backend returns client_id_required).
+  const isAdminOps = user && ['admin', 'operations', 'confirmation'].includes(user.role);
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
   const [view, setView] = useState('table'); // 'table' | 'calendar'
