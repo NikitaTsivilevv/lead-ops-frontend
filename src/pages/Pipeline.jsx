@@ -159,19 +159,21 @@ export default function Pipeline() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <div className="px-4 py-4">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="mb-4 space-y-3">
           <h1 className="text-xl font-semibold tracking-tight">Pipeline</h1>
-
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <label className="text-sm text-muted-foreground">From</label>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-36 h-8 text-sm" />
-            <label className="text-sm text-muted-foreground">To</label>
-            <Input type="date" value={to}   onChange={e => setTo(e.target.value)}   className="w-36 h-8 text-sm" />
-            <Button size="sm" variant="outline" onClick={() => fetchData(true)} disabled={refreshing}>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm text-muted-foreground shrink-0">From</label>
+              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-36 h-8 text-sm" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm text-muted-foreground shrink-0">To</label>
+              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-36 h-8 text-sm" />
+            </div>
+            <Button size="sm" variant="outline" onClick={() => fetchData(true)} disabled={refreshing} className="gap-1.5">
               {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               Refresh
             </Button>
-            {refreshing && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           </div>
         </div>
 

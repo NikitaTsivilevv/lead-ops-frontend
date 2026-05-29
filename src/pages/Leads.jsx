@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import DataTable from '@/components/DataTable';
+import Searchbar from '@/components/Searchbar';
 
 function formatET(isoString) {
   if (!isoString) return '—';
@@ -57,8 +59,9 @@ export default function Leads() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
-  const fetch = useCallback(async (f) => {
+  const fetchRows = useCallback(async (f) => {
     setError('');
     setLoading(true);
     try {
@@ -76,33 +79,73 @@ export default function Leads() {
     }
   }, []);
 
-  useEffect(() => { fetch(filters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchRows(filters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => setFilters(f => ({ ...f, [key]: value }));
+  const handleRefresh = () => fetchRows(filters);
+  const handleClear = () => { setFilters(EMPTY_FILTERS); fetchRows(EMPTY_FILTERS); };
 
-  const handleRefresh = () => fetch(filters);
-  const handleClear = () => {
-    setFilters(EMPTY_FILTERS);
-    fetch(EMPTY_FILTERS);
-  };
+  const columns = [
+    {
+      key: 'appointment_at',
+      header: 'Date (ET)',
+      headerClassName: 'whitespace-nowrap',
+      cell: (row) => <span className="whitespace-nowrap text-sm">{formatET(row.appointment_at)}</span>,
+    },
+    {
+      key: 'prospect_name',
+      header: 'Prospect',
+      cell: (row) => <span className="font-medium text-sm">{row.prospect_name || '—'}</span>,
+    },
+    {
+      key: 'address',
+      header: 'Address',
+      cell: (row) => <span className="text-sm">{row.address || '—'}</span>,
+    },
+    {
+      key: 'renovation_items',
+      header: 'Renovations',
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">
+          {Array.isArray(row.renovation_items) ? row.renovation_items.join(', ') : (row.renovation_items || '—')}
+        </span>
+      ),
+    },
+    {
+      key: 'qualification',
+      header: 'Qualification',
+      cell: (row) => <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />,
+    },
+    {
+      key: 'confirmations',
+      header: 'Confirmed?',
+      cell: (row) => <ConfirmationBadges confirmations={row.confirmations} />,
+    },
+    {
+      key: 'outcome',
+      header: 'Outcome',
+      cell: (row) => <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />,
+    },
+    ...(!isClient ? [{
+      key: 'agent_id',
+      header: 'Agent',
+      cell: (row) => <span className="text-sm text-muted-foreground">{row.agent_id ? `#${row.agent_id}` : '—'}</span>,
+    }] : []),
+  ];
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1200px] mx-auto space-y-5">
+    <div className="min-h-screen bg-background py-6 px-4">
+      <div className="max-w-[1200px] mx-auto space-y-4">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">{isClient ? 'My appointments' : 'Appointments'}</h1>
-        </div>
+        <h1 className="text-2xl font-semibold text-foreground">
+          {isClient ? 'My appointments' : 'Appointments'}
+        </h1>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Qualification</p>
             <Select value={filters.qualification} onValueChange={v => setFilter('qualification', v === '_all' ? '' : v)}>
-              <SelectTrigger className="w-40 h-9">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
+              <SelectTrigger className="w-full sm:w-40 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -115,9 +158,7 @@ export default function Leads() {
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Outcome</p>
             <Select value={filters.outcome} onValueChange={v => setFilter('outcome', v === '_all' ? '' : v)}>
-              <SelectTrigger className="w-44 h-9">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
+              <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -132,24 +173,25 @@ export default function Leads() {
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">From</p>
-            <Input type="date" className="h-9 w-36" value={filters.from} onChange={e => setFilter('from', e.target.value)} />
+            <Input type="date" className="h-9 w-full sm:w-36" value={filters.from} onChange={e => setFilter('from', e.target.value)} />
           </div>
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">To</p>
-            <Input type="date" className="h-9 w-36" value={filters.to} onChange={e => setFilter('to', e.target.value)} />
+            <Input type="date" className="h-9 w-full sm:w-36" value={filters.to} onChange={e => setFilter('to', e.target.value)} />
           </div>
 
-          <Button size="sm" variant="outline" onClick={handleRefresh} className="h-9 gap-1.5">
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleClear} className="h-9 text-muted-foreground">
-            Clear filters
-          </Button>
+          <div className="col-span-2 sm:col-span-1 flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleRefresh} className="h-9 gap-1.5 flex-1 sm:flex-none">
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleClear} className="h-9 text-muted-foreground flex-1 sm:flex-none">
+              Clear
+            </Button>
+          </div>
         </div>
 
-        {/* Error */}
         {error && (
           <div className="flex items-center justify-between rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">
             <span>{error}</span>
@@ -157,64 +199,46 @@ export default function Leads() {
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Table */}
-        {!loading && !error && (
-          rows.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground text-sm">No appointments yet.</div>
-          ) : (
-            <div className="rounded-lg border border-border overflow-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card z-10">
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Date (ET)</TableHead>
-                    <TableHead className="whitespace-nowrap">Prospect</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Renovations</TableHead>
-                    <TableHead>Qualification</TableHead>
-                    <TableHead>Confirmed?</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    {!isClient && <TableHead>Agent</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map(row => (
-                    <TableRow
-                      key={row.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => navigate(`/appointments/${row.id}`)}
-                    >
-                      <TableCell className="whitespace-nowrap text-sm">{formatET(row.appointment_at)}</TableCell>
-                      <TableCell className="font-medium text-sm">{row.prospect_name || '—'}</TableCell>
-                      <TableCell className="text-sm">{row.address || '—'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {Array.isArray(row.renovation_items) ? row.renovation_items.join(', ') : (row.renovation_items || '—')}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />
-                      </TableCell>
-                      <TableCell><ConfirmationBadges confirmations={row.confirmations} /></TableCell>
-                      <TableCell>
-                        <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
-                      </TableCell>
-                      {!isClient && (
-                        <TableCell className="text-sm text-muted-foreground">
-                          {row.agent_id ? `#${row.agent_id}` : '—'}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )
-        )}
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <Searchbar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name, address, outcome…"
+            />
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !error && (
+              <DataTable
+                columns={columns}
+                rows={rows.filter((r) => {
+                  if (!search.trim()) return true;
+                  const q = search.trim().toLowerCase();
+                  return [r.prospect_name, r.address, r.phone, r.qualification, r.outcome, r.campaign_source, r.assigned_closer]
+                    .some((v) => v && String(v).toLowerCase().includes(q));
+                })}
+                onRowClick={(row) => navigate(`/appointments/${row.id}`)}
+                emptyMessage="No appointments yet."
+                mobileCard={(row) => (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm">{row.prospect_name || '—'}</p>
+                      <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{formatET(row.appointment_at)}</p>
+                    {row.address && <p className="text-xs text-muted-foreground truncate">{row.address}</p>}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
+                      <ConfirmationBadges confirmations={row.confirmations} />
+                    </div>
+                  </>
+                )}
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
