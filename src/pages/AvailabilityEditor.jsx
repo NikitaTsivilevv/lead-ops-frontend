@@ -23,8 +23,6 @@ const DAYS = [
   { dow: 0, label: 'Sunday' },
 ];
 
-// TODO: replace with GET /api/clients when exposed
-const CLIENT_OPTIONS = [{ id: 1, name: 'Guy Green Constructions' }];
 
 function emptySlot() {
   return { start_time: '09:00', end_time: '17:00', capacity: 1, _key: Math.random() };
@@ -86,6 +84,12 @@ export default function AvailabilityEditor() {
 
   const isAdminOps = ['admin', 'operations'].includes(user?.role);
   const [clientId, setClientId] = useState('1');
+  const [clientOptions, setClientOptions] = useState([]);
+  useEffect(() => {
+    apiClient.listClients()
+      .then((data) => setClientOptions(Array.isArray(data) ? data : (data?.clients || [])))
+      .catch(() => setClientOptions([]));
+  }, []);
 
   // Server snapshot (for change detection + discard)
   const [serverRecurring, setServerRecurring] = useState([]);
@@ -206,7 +210,7 @@ export default function AvailabilityEditor() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CLIENT_OPTIONS.map(c => (
+                  {clientOptions.map(c => (
                     <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
