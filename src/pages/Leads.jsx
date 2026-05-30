@@ -106,7 +106,7 @@ export default function Leads() {
         qualification: f.qualification || undefined,
         outcome: f.outcome || undefined,
         confirmation_status: f.confirmation_status || undefined,
-        client_id: f.client_id || undefined,
+        client_id: f.client_id ? Number(f.client_id) || undefined : undefined,
         from: f.from || undefined,
         to: f.to || undefined,
       });
@@ -337,6 +337,7 @@ export default function Leads() {
                     {row.address && <p className="text-xs text-muted-foreground truncate">{row.address}</p>}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
+                      <StatusBadge value={row.confirmation_status} colorMap={CONF_COLORS} />
                       <ConfirmationBadges confirmations={row.confirmations} />
                     </div>
                   </>
