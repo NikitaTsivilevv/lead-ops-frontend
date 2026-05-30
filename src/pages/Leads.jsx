@@ -39,6 +39,15 @@ const OUTCOME_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
 };
 
+const CONF_COLORS = {
+  yes: 'bg-green-100 text-green-800',
+  no: 'bg-red-100 text-red-800',
+  reschedule: 'bg-orange-100 text-orange-800',
+  rejected: 'bg-red-100 text-red-800',
+  future: 'bg-blue-100 text-blue-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+};
+
 function StatusBadge({ value, colorMap }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   const cls = colorMap[value.toLowerCase()] || 'bg-secondary text-secondary-foreground';
@@ -69,7 +78,7 @@ function ClientDecisionBadge({ value }) {
   );
 }
 
-const EMPTY_FILTERS = { qualification: '', outcome: '', from: '', to: '' };
+const EMPTY_FILTERS = { qualification: '', outcome: '', confirmation_status: '', client_id: '', from: '', to: '' };
 
 export default function Leads() {
   const navigate = useNavigate();
@@ -81,6 +90,14 @@ export default function Leads() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
+  const [clients, setClients] = useState([]);
+  useEffect(() => {
+    if (isClient) return; // client/caller roles are auto-scoped server-side
+    apiClient.listClients()
+      .then((data) => setClients(Array.isArray(data) ? data : (data.clients || [])))
+      .catch(() => setClients([]));
+  }, [isClient]);
+
   const fetchRows = useCallback(async (f) => {
     setError('');
     setLoading(true);
@@ -88,6 +105,8 @@ export default function Leads() {
       const data = await apiClient.listAppointments({
         qualification: f.qualification || undefined,
         outcome: f.outcome || undefined,
+        confirmation_status: f.confirmation_status || undefined,
+        client_id: f.client_id || undefined,
         from: f.from || undefined,
         to: f.to || undefined,
       });
@@ -157,8 +176,15 @@ export default function Leads() {
       cell: (row) => <ClientDecisionBadge value={row.client_decision} />,
     },
     {
+      key: 'confirmation_status',
+      header: 'Confirmation',
+      sortable: true,
+      sortValue: (row) => row.confirmation_status || '',
+      cell: (row) => <StatusBadge value={row.confirmation_status} colorMap={CONF_COLORS} />,
+    },
+    {
       key: 'confirmations',
-      header: 'Confirmed?',
+      header: 'Confirmation calls',
       cell: (row) => <ConfirmationBadges confirmations={row.confirmations} />,
     },
     {
@@ -168,6 +194,12 @@ export default function Leads() {
       cell: (row) => <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />,
     },
     ...(!isClient ? [{
+      key: 'client_name',
+      header: 'Client',
+      sortable: true,
+      sortValue: (row) => row.client_name || '',
+      cell: (row) => <span className="text-sm">{row.client_name || '—'}</span>,
+    }, {
       key: 'agent_id',
       header: 'Agent',
       sortable: true,
@@ -213,6 +245,36 @@ export default function Leads() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Confirmation</p>
+            <Select value={filters.confirmation_status} onValueChange={v => setFilter('confirmation_status', v === '_all' ? '' : v)}>
+              <SelectTrigger className="w-full sm:w-40 h-9"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All</SelectItem>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+                <SelectItem value="reschedule">Reschedule</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="future">Future</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {!isClient && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground font-medium">Client</p>
+              <Select value={filters.client_id} onValueChange={v => setFilter('client_id', v === '_all' ? '' : v)}>
+                <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">All</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">From</p>
