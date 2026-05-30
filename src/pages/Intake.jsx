@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +14,7 @@ const RENOVATION_OPTIONS = [
 ];
 
 const INITIAL = {
+  client_id: '',
   caller_name: '',
   prospect_name: '',
   address: '',
@@ -82,6 +81,11 @@ function explainLeadError(err) {
     return 'Your account is not assigned to a client. Ask an admin to link your account to a client.';
   }
 
+  // 400 invalid_client — selected client is inactive or does not exist
+  if (status === 400 && errorCode === 'invalid_client') {
+    return 'Selected client is not available. Pick another client.';
+  }
+
   // 400 validation_error — Zod schema failure on the request body
   if (status === 400 && errorCode === 'validation_error') {
     const first = (payload.issues || [])[0];
@@ -101,13 +105,28 @@ export default function Intake() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Backend auto-scopes /api/agents to the caller's own client.
-  const agentsQuery = useQuery({
-    queryKey: ['agents', 'intake', user?.client_id ?? user?.clientId ?? null],
-    queryFn: () => apiClient.listAgents(),
-    enabled: !!user,
-  });
-  const agentOptions = (agentsQuery.data?.agents || []).filter(a => a.active);
+  const [clients, setClients] = useState([]);
+  useEffect(() => {
+    apiClient.listClients()
+      .then((data) => setClients(Array.isArray(data) ? data : (data.clients || [])))
+      .catch(() => setClients([]));
+  }, []);
+
+  // Default the client picker to the caller's own client (once, when clients load).
+  const ownClientId = user?.client_id ?? user?.clientId ?? null;
+  useEffect(() => {
+    if (!ownClientId) return;
+    if (clients.some((c) => String(c.id) === String(ownClientId))) {
+      setForm((f) => (f.client_id ? f : { ...f, client_id: String(ownClientId) }));
+    }
+  }, [clients, ownClientId]);
+
+  // Default the caller name to the logged-in user's full name (editable).
+  useEffect(() => {
+    if (user?.full_name) {
+      setForm((f) => (f.caller_name ? f : { ...f, caller_name: user.full_name }));
+    }
+  }, [user]);
 
   const setField = (name, value) => setForm(f => ({ ...f, [name]: value }));
 
@@ -124,6 +143,11 @@ export default function Intake() {
     e.preventDefault();
     setError('');
 
+    if (!form.client_id) {
+      setError('Please select a client.');
+      return;
+    }
+
     if (form.renovation_items.length === 0) {
       setError('Please select at least one renovation item.');
       return;
@@ -136,6 +160,7 @@ export default function Intake() {
 
     const body = {
       caller_name: form.caller_name,
+      client_id: form.client_id ? Number(form.client_id) : undefined,
       prospect_name: form.prospect_name,
       address: form.address,
       renovation_items: form.renovation_items,
@@ -183,34 +208,30 @@ export default function Intake() {
               {/* Basic info */}
               <div className="space-y-4">
                 <div className="space-y-1.5">
+                  <Label htmlFor="client_id">Client *</Label>
+                  <select
+                    id="client_id"
+                    className="h-9 rounded-md border bg-background px-2 text-sm w-full"
+                    value={form.client_id}
+                    onChange={e => setField('client_id', e.target.value)}
+                    required
+                  >
+                    <option value="">Select client…</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label htmlFor="caller_name">Caller *</Label>
-                  {agentsQuery.isLoading && (
-                    <p className="text-xs text-muted-foreground">Loading callers…</p>
-                  )}
-                  {!agentsQuery.isLoading && agentOptions.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No callers configured yet. Ask an admin to add one via{' '}
-                      {user?.role === 'admin'
-                        ? <Link to="/admin/callers" className="underline">/admin/callers</Link>
-                        : 'the Callers admin page'}.
-                    </p>
-                  )}
-                  {agentOptions.length > 0 && (
-                    <select
-                      id="caller_name"
-                      className="h-9 rounded-md border bg-background px-2 text-sm w-full"
-                      value={form.caller_name}
-                      onChange={e => setField('caller_name', e.target.value)}
-                      required
-                    >
-                      <option value="">Select caller…</option>
-                      {agentOptions.map(a => (
-                        <option key={a.id} value={a.name}>
-                          {a.name}{a.ext_id ? ` (${a.ext_id})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  <Input
+                    id="caller_name"
+                    value={form.caller_name}
+                    onChange={e => setField('caller_name', e.target.value)}
+                    placeholder="Setter name"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">
