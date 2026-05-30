@@ -121,6 +121,11 @@ export default function Leads() {
   useEffect(() => { fetchRows(filters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => setFilters(f => ({ ...f, [key]: value }));
+  const applyFilter = (key, value) => {
+    const next = { ...filters, [key]: value };
+    setFilters(next);
+    fetchRows(next);
+  };
   const handleRefresh = () => fetchRows(filters);
   const handleClear = () => { setFilters(EMPTY_FILTERS); fetchRows(EMPTY_FILTERS); };
 
@@ -219,7 +224,7 @@ export default function Leads() {
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Qualification</p>
-            <Select value={filters.qualification} onValueChange={v => setFilter('qualification', v === '_all' ? '' : v)}>
+            <Select value={filters.qualification} onValueChange={v => applyFilter('qualification', v === '_all' ? '' : v)}>
               <SelectTrigger className="w-full sm:w-40 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
@@ -232,7 +237,7 @@ export default function Leads() {
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Outcome</p>
-            <Select value={filters.outcome} onValueChange={v => setFilter('outcome', v === '_all' ? '' : v)}>
+            <Select value={filters.outcome} onValueChange={v => applyFilter('outcome', v === '_all' ? '' : v)}>
               <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
@@ -248,7 +253,7 @@ export default function Leads() {
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Confirmation</p>
-            <Select value={filters.confirmation_status} onValueChange={v => setFilter('confirmation_status', v === '_all' ? '' : v)}>
+            <Select value={filters.confirmation_status} onValueChange={v => applyFilter('confirmation_status', v === '_all' ? '' : v)}>
               <SelectTrigger className="w-full sm:w-40 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
@@ -264,7 +269,7 @@ export default function Leads() {
           {!isClient && (
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium">Client</p>
-              <Select value={filters.client_id} onValueChange={v => setFilter('client_id', v === '_all' ? '' : v)}>
+              <Select value={filters.client_id} onValueChange={v => applyFilter('client_id', v === '_all' ? '' : v)}>
                 <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">All</SelectItem>
