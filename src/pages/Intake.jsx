@@ -185,7 +185,8 @@ export default function Intake() {
     try {
       await apiClient.submitLead(body);
       toast.success('Lead submitted');
-      setForm(INITIAL);
+      // Keep the chosen client + caller name for the next lead; clear everything else.
+      setForm((f) => ({ ...INITIAL, client_id: f.client_id, caller_name: f.caller_name }));
     } catch (err) {
       setError(explainLeadError(err));
     } finally {

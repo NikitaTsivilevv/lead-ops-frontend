@@ -528,6 +528,7 @@ export default function AppointmentDetail() {
             <CardTitle className="text-base">Lead info</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
             <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
             <InfoRow label="Address">{appt.address || '—'}</InfoRow>
             <InfoRow label="Renovations">
@@ -557,6 +558,7 @@ export default function AppointmentDetail() {
             <div className="pt-1 border-t border-border" />
 
             <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
+            <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
             <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
             <InfoRow label="Campaign source">{appt.campaign_source || '—'}</InfoRow>
             {appt.recording_url && (
