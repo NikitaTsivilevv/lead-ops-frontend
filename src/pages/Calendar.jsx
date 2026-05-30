@@ -129,6 +129,17 @@ export default function Calendar() {
   const [from, setFrom] = useState(todayYMD());
   const [to, setTo] = useState(addDays(todayYMD(), 13));
   const [clientId, setClientId] = useState('1');
+  const [clients, setClients] = useState([]);
+  useEffect(() => {
+    if (!isAdminOps) return;
+    apiClient.listClients()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data.clients || []);
+        setClients(list);
+        if (list[0]) setClientId(String(list[0].id));
+      })
+      .catch(() => setClients([]));
+  }, [isAdminOps]);
   const [data, setData] = useState({ slots: [], appointments: [] });
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
@@ -293,6 +304,18 @@ export default function Calendar() {
             {refetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">Refresh</span>
           </Button>
+
+          {isAdminOps && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </select>
+          )}
 
           <div className="flex rounded-md border border-input overflow-hidden ml-auto">
             <button
