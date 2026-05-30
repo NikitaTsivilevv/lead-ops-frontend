@@ -207,10 +207,12 @@ export default function AppointmentDetail() {
   const [paSaving, setPaSaving] = useState(false);
   const [paError, setPaError] = useState('');
 
-  // TODO: replace with GET /api/clients once the endpoint is exposed.
-  const CLIENT_OPTIONS = [
-    { id: 1, name: 'Guy Green Constructions' },
-  ];
+  const [clientOptions, setClientOptions] = useState([]);
+  useEffect(() => {
+    apiClient.listClients()
+      .then((data) => setClientOptions(Array.isArray(data) ? data : (data?.clients || [])))
+      .catch(() => setClientOptions([]));
+  }, []);
 
   const canEdit = user?.role !== 'client';
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
@@ -934,7 +936,7 @@ export default function AppointmentDetail() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CLIENT_OPTIONS.map(c => (
+                    {clientOptions.map(c => (
                       <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
