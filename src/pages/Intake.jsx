@@ -121,12 +121,21 @@ export default function Intake() {
     }
   }, [clients, ownClientId]);
 
-  // Default the caller name to the logged-in user's full name (editable).
+  const [callers, setCallers] = useState([]);
   useEffect(() => {
-    if (user?.full_name) {
-      setForm((f) => (f.caller_name ? f : { ...f, caller_name: user.full_name }));
+    apiClient.listCallers()
+      .then((data) => setCallers(Array.isArray(data) ? data : (data.callers || [])))
+      .catch(() => setCallers([]));
+  }, []);
+
+  // Pre-select the logged-in user in the caller dropdown (by user id).
+  useEffect(() => {
+    if (!user?.id || callers.length === 0) return;
+    const self = callers.find((c) => c.id === user.id);
+    if (self) {
+      setForm((f) => (f.caller_name ? f : { ...f, caller_name: self.full_name }));
     }
-  }, [user]);
+  }, [callers, user]);
 
   const setField = (name, value) => setForm(f => ({ ...f, [name]: value }));
 
@@ -226,13 +235,18 @@ export default function Intake() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="caller_name">Caller *</Label>
-                  <Input
+                  <select
                     id="caller_name"
+                    className="h-9 rounded-md border bg-background px-2 text-sm w-full"
                     value={form.caller_name}
                     onChange={e => setField('caller_name', e.target.value)}
-                    placeholder="Setter name"
                     required
-                  />
+                  >
+                    <option value="">Select caller…</option>
+                    {callers.map(c => (
+                      <option key={c.id} value={c.full_name}>{c.full_name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
