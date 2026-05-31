@@ -78,6 +78,8 @@ export const apiClient = {
     request(`/api/agents${clientId ? `?client_id=${clientId}` : ''}`),
   createAgent: (body) => request('/api/agents', { method: 'POST', body }),
   updateAgent: (id, body) => request(`/api/agents/${id}`, { method: 'PATCH', body }),
+  // callers (for intake dropdown)
+  listCallers: () => request('/api/callers'),
   // clients
   listClients: () => request('/api/clients'),
   createClient: (body) => request('/api/clients', { method: 'POST', body }),
