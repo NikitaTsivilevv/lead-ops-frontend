@@ -10,17 +10,32 @@ import { ArrowUp, ArrowDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-re
 import { cn } from '@/lib/utils';
 
 // Column shape: { key, header, cell(row), headerClassName?, className?,
-//                 sortable?: bool, sortValue?: (row) => string|number|null }
+//                 sortable?: bool, sortValue?: (row) => string|number|null,
+//                 defaultHidden?: bool }
 // columnToggleId: when set, render a "Columns" picker and persist the choice
 //                 to localStorage under that id.
+// defaultHidden: column starts hidden when no saved localStorage preference
+//                exists for this columnToggleId. Once the user has saved a
+//                preference (even an empty one), the saved value governs.
+//                Backward-compatible: columns without defaultHidden are visible.
 
 function loadHidden(id) {
-  if (!id) return [];
-  try { return JSON.parse(localStorage.getItem(`dt-hidden-${id}`)) || []; } catch { return []; }
+  if (!id) return null; // null means "no saved preference"
+  try {
+    const raw = localStorage.getItem(`dt-hidden-${id}`);
+    if (raw === null) return null; // key was never written
+    return JSON.parse(raw) || [];
+  } catch { return null; }
 }
 function saveHidden(id, hidden) {
   if (!id) return;
   try { localStorage.setItem(`dt-hidden-${id}`, JSON.stringify(hidden)); } catch { /* ignore */ }
+}
+function resolveInitialHidden(id, columns) {
+  const saved = loadHidden(id);
+  if (saved !== null) return saved; // use the user's saved preference as-is
+  // No saved preference: start with columns that declare defaultHidden: true
+  return columns.filter((c) => c.defaultHidden).map((c) => c.key);
 }
 
 export default function DataTable({
@@ -36,7 +51,7 @@ export default function DataTable({
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [sort, setSort] = useState(null); // { key, dir: 'asc' | 'desc' }
-  const [hidden, setHidden] = useState(() => loadHidden(columnToggleId));
+  const [hidden, setHidden] = useState(() => resolveInitialHidden(columnToggleId, columns));
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(0); }, [rows, sort]);

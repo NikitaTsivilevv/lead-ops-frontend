@@ -132,7 +132,7 @@ export default function Leads() {
   const columns = [
     {
       key: 'appointment_at',
-      header: 'Date (ET)',
+      header: 'Meeting Date',
       headerClassName: 'whitespace-nowrap',
       sortable: true,
       sortValue: (row) => (row.appointment_at ? Date.parse(row.appointment_at) : null),
@@ -157,6 +157,12 @@ export default function Leads() {
       header: 'Address',
       sortable: true,
       cell: (row) => <span className="text-sm">{row.address || '—'}</span>,
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      defaultHidden: true,
+      cell: (row) => <span className="text-sm">{row.phone || '—'}</span>,
     },
     {
       key: 'renovation_items',
@@ -215,7 +221,7 @@ export default function Leads() {
 
   return (
     <div className="min-h-screen bg-background py-6 px-4">
-      <div className="max-w-[1200px] mx-auto space-y-4">
+      <div className="max-w-none mx-auto space-y-4">
 
         <h1 className="text-2xl font-semibold text-foreground">
           {isClient ? 'My appointments' : 'Appointments'}
