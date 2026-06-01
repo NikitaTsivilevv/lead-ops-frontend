@@ -25,9 +25,9 @@ const AppRoutes = () => (
     <Route path="/login" element={<AuthGate />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
     <Route path="/my-leads" element={<RequireAuth allow={['caller','admin']}><MyLeads /></RequireAuth>} />
-    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
+    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
-    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
+    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><AppointmentDetail /></RequireAuth>} />
     <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Pipeline /></RequireAuth>} />
     <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
     <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client']}><AvailabilityEditor /></RequireAuth>} />
