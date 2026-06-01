@@ -46,6 +46,7 @@ function NavLinks({ user, onClick }) {
         <>
           <NavLink to="/admin/clients" className={linkClass} onClick={onClick}>Clients</NavLink>
           <NavLink to="/admin/callers" className={linkClass} onClick={onClick}>Callers</NavLink>
+          <NavLink to="/admin/users" className={linkClass} onClick={onClick}>Users</NavLink>
         </>
       )}
     </>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -94,6 +94,9 @@ export default function AuthGate() {
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign in'}
               </Button>
+              <div className="text-center">
+                <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">Forgot password?</Link>
+              </div>
             </form>
           </CardContent>
         </Card>

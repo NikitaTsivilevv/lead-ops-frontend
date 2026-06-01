@@ -45,6 +45,16 @@ export const apiClient = {
   login: (email, password) => request('/api/auth/login', { method: 'POST', body: { email, password } }),
   me: () => request('/api/auth/me'),
   createUser: (data) => request('/api/auth/users', { method: 'POST', body: data }),
+  acceptInvite: (data) => request('/api/auth/accept-invite', { method: 'POST', body: data }),
+  getInviteByToken: (token) => request(`/api/auth/invites/${encodeURIComponent(token)}`),
+  forgotPassword: (email) => request('/api/auth/forgot-password', { method: 'POST', body: { email } }),
+  getResetTokenStatus: (token) => request(`/api/auth/reset-tokens/${encodeURIComponent(token)}`),
+  resetPassword: (token, new_password) => request('/api/auth/reset-password', { method: 'POST', body: { token, new_password } }),
+  listUsers: () => request('/api/auth/users'),
+  inviteUser: (data) => request('/api/auth/invites', { method: 'POST', body: data }),
+  updateUser: (id, body) => request(`/api/auth/users/${id}`, { method: 'PATCH', body }),
+  disableUser: (id) => request(`/api/auth/users/${id}/disable`, { method: 'POST' }),
+  resendInvite: (id) => request(`/api/auth/users/${id}/resend-invite`, { method: 'POST' }),
   // leads / appointments
   submitLead: (data) => request('/api/leads', { method: 'POST', body: data }),
   listAppointments: (params = {}) => {
