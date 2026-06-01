@@ -18,11 +18,17 @@ import Pipeline from '@/pages/Pipeline';
 import MyLeads from '@/pages/MyLeads';
 import AdminCallers from '@/pages/AdminCallers';
 import AdminClients from '@/pages/AdminClients';
+import AcceptInvite from '@/pages/AcceptInvite';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<RoleHome />} />
     <Route path="/login" element={<AuthGate />} />
+    <Route path="/accept-invite" element={<AcceptInvite />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
     <Route path="/my-leads" element={<RequireAuth allow={['caller','admin']}><MyLeads /></RequireAuth>} />
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><Leads /></RequireAuth>} />

@@ -35,8 +35,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  function applySession(token, sessionUser) {
+    apiClient.setToken(token);
+    setUser(sessionUser);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, applySession }}>
       {children}
     </AuthContext.Provider>
   );
