@@ -7,7 +7,7 @@ export default function TablePagination({ page, totalPages, pageSize, onPageChan
   if (!alwaysShow && totalPages <= 1) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 bg-white p-2 rounded-md border border-gray-200 shadow-sm">
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page</span>
         <Select

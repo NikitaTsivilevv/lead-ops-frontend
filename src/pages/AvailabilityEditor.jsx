@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, X, Plus } from 'lucide-react';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { Loader2, ArrowLeft, X, Plus, Ban, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ── constants ──────────────────────────────────────────────────────────────
@@ -23,6 +24,17 @@ const DAYS = [
   { dow: 0, label: 'Sunday' },
 ];
 
+
+function toYMD(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+function fromYMD(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function fmtBlocked(ymd) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(fromYMD(ymd));
+}
 
 function emptySlot() {
   return { start_time: '09:00', end_time: '17:00', capacity: 1, _key: Math.random() };
@@ -76,6 +88,64 @@ function validate(recurring, specific) {
   return errors;
 }
 
+// ── ICS parser ─────────────────────────────────────────────────────────────
+
+function parseICSDateStr(keyStr, valStr) {
+  const v = valStr.trim();
+  const isDate = keyStr.includes('VALUE=DATE') || /^\d{8}$/.test(v);
+  if (isDate) {
+    return { date: new Date(parseInt(v.slice(0, 4), 10), parseInt(v.slice(4, 6), 10) - 1, parseInt(v.slice(6, 8), 10)), isDate: true };
+  }
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})T/);
+  if (m) {
+    return { date: new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)), isDate: false };
+  }
+  return null;
+}
+
+function parseICS(text) {
+  const lines = text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
+  const dates = new Set();
+  let inEvent = false;
+  let dtstartRaw = null;
+  let dtendRaw = null;
+
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') {
+      inEvent = true; dtstartRaw = null; dtendRaw = null;
+    } else if (line === 'END:VEVENT') {
+      inEvent = false;
+      if (dtstartRaw) {
+        const startParsed = parseICSDateStr(dtstartRaw.key, dtstartRaw.val);
+        if (startParsed) {
+          let endDate = new Date(startParsed.date);
+          if (dtendRaw) {
+            const endParsed = parseICSDateStr(dtendRaw.key, dtendRaw.val);
+            if (endParsed) {
+              endDate = new Date(endParsed.date);
+              // VALUE=DATE DTEND is exclusive — step back one day
+              if (endParsed.isDate) endDate.setDate(endDate.getDate() - 1);
+            }
+          }
+          let cur = new Date(startParsed.date);
+          let safety = 0;
+          while (cur <= endDate && safety < 366) {
+            dates.add(toYMD(cur));
+            cur = new Date(cur); cur.setDate(cur.getDate() + 1); safety++;
+          }
+        }
+      }
+    } else if (inEvent) {
+      const ci = line.indexOf(':');
+      if (ci === -1) continue;
+      const key = line.slice(0, ci); const val = line.slice(ci + 1);
+      if (key === 'DTSTART' || key.startsWith('DTSTART;')) dtstartRaw = { key, val };
+      else if (key === 'DTEND' || key.startsWith('DTEND;')) dtendRaw = { key, val };
+    }
+  }
+  return [...dates].sort();
+}
+
 // ── main component ─────────────────────────────────────────────────────────
 
 export default function AvailabilityEditor() {
@@ -94,10 +164,12 @@ export default function AvailabilityEditor() {
   // Server snapshot (for change detection + discard)
   const [serverRecurring, setServerRecurring] = useState([]);
   const [serverSpecific, setServerSpecific] = useState([]);
+  const [serverBlocked, setServerBlocked] = useState([]); // YMD strings
 
   // Editable state
   const [recurring, setRecurring] = useState([]);
   const [specific, setSpecific] = useState([]);
+  const [blocked, setBlocked] = useState([]); // YMD strings
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -111,11 +183,15 @@ export default function AvailabilityEditor() {
     try {
       const res = await apiClient.getAvailability(isAdminOps ? cid : undefined);
       const rec = addKeys(res.recurring || []);
-      const spec = addKeys(res.specific || []);
+      const allSpec = res.specific || [];
+      const blockedYMDs = allSpec.filter(s => Number(s.capacity) === 0).map(s => s.specific_date);
+      const openSpec = addKeys(allSpec.filter(s => Number(s.capacity) !== 0));
       setServerRecurring(rec);
-      setServerSpecific(spec);
+      setServerSpecific(openSpec);
+      setServerBlocked(blockedYMDs);
       setRecurring(rec);
-      setSpecific(spec);
+      setSpecific(openSpec);
+      setBlocked(blockedYMDs);
     } finally {
       setLoading(false);
     }
@@ -127,7 +203,8 @@ export default function AvailabilityEditor() {
 
   const hasChanges =
     !deepEqual(stripKeys(recurring), stripKeys(serverRecurring)) ||
-    !deepEqual(stripKeys(specific), stripKeys(serverSpecific));
+    !deepEqual(stripKeys(specific), stripKeys(serverSpecific)) ||
+    !deepEqual([...blocked].sort(), [...serverBlocked].sort());
 
   const validationErrors = validate(recurring, specific);
   const canSave = hasChanges && validationErrors.length === 0 && !saving;
@@ -162,10 +239,19 @@ export default function AvailabilityEditor() {
     setSaveError('');
     setSaving(true);
     try {
+      const blockedAsSpec = blocked.map(ymd => ({
+        specific_date: ymd,
+        start_time: '00:00',
+        end_time: '23:59',
+        capacity: 0,
+      }));
       const payload = {
         client_id: Number(clientId),
         recurring: stripKeys(recurring).map(s => ({ ...s, capacity: Number(s.capacity) })),
-        specific: stripKeys(specific).map(s => ({ ...s, capacity: Number(s.capacity) })),
+        specific: [
+          ...stripKeys(specific).map(s => ({ ...s, capacity: Number(s.capacity) })),
+          ...blockedAsSpec,
+        ],
       };
       await apiClient.putAvailability(payload);
       await loadData(clientId);
@@ -178,6 +264,30 @@ export default function AvailabilityEditor() {
   };
 
   const handleDiscard = () => loadData(clientId);
+
+  // ── ICS import ─────────────────────────────────────────────────────────
+  const icsInputRef = useRef(null);
+
+  const handleICSImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const imported = parseICS(ev.target.result);
+      setBlocked(prev => {
+        const existing = new Set(prev);
+        const added = imported.filter(d => !existing.has(d));
+        if (added.length === 0) {
+          toast.info('No new dates found in the ICS file.');
+        } else {
+          toast.success(`Blocked ${added.length} new date${added.length > 1 ? 's' : ''} from ICS file.`);
+        }
+        return [...existing, ...added].sort();
+      });
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -303,6 +413,65 @@ export default function AvailabilityEditor() {
               <Plus className="w-3.5 h-3.5" />
               Add date
             </button>
+          </CardContent>
+        </Card>
+
+        {/* Blocked dates */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Ban className="w-4 h-4 text-red-500" />
+                Blocked dates
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => icsInputRef.current?.click()}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Import .ics
+              </Button>
+              <input
+                ref={icsInputRef}
+                type="file"
+                accept=".ics,text/calendar"
+                className="hidden"
+                onChange={handleICSImport}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Click a date to block it entirely. Blocked dates override the weekly schedule — no appointments can be booked on these days.
+              You can also import an <code className="text-xs bg-muted px-1 py-0.5 rounded">.ics</code> calendar file to block all event dates automatically.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <CalendarPicker
+              mode="multiple"
+              selected={blocked.map(fromYMD)}
+              onSelect={(dates) => setBlocked((dates || []).map(toYMD))}
+              numberOfMonths={2}
+              className="rounded-md border p-3 w-fit"
+              modifiers={{ blocked: blocked.map(fromYMD) }}
+              modifiersClassNames={{ blocked: '!bg-red-100 !text-red-700 font-semibold' }}
+            />
+            {blocked.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No dates blocked.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {[...blocked].sort().map(ymd => (
+                  <button
+                    key={ymd}
+                    onClick={() => setBlocked(b => b.filter(d => d !== ymd))}
+                    className="flex items-center gap-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded-full px-2.5 py-1 hover:bg-red-100 transition-colors"
+                  >
+                    {fmtBlocked(ymd)}
+                    <X className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

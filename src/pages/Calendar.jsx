@@ -14,8 +14,10 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Searchbar from '@/components/Searchbar';
 import TablePagination from '@/components/TablePagination';
+import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { Badge, QUAL_BADGE, SHOW_STATUS_BADGE, SALE_STATUS_BADGE, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
 const TZ = 'America/New_York';
@@ -81,6 +83,18 @@ function formatFullDateTime(iso) {
     hour: 'numeric', minute: '2-digit', hour12: true, timeZoneName: 'short',
   }).format(new Date(iso));
 }
+function confirmationSummary(confirmations) {
+  if (!Array.isArray(confirmations) || confirmations.length === 0) return 'pending';
+  if (confirmations.some(c => c.status === 'confirmed')) return 'confirmed';
+  if (confirmations.some(c => c.status === 'failed')) return 'failed';
+  return 'pending';
+}
+const CONFIRM_BADGE = {
+  confirmed: 'bg-green-100 text-green-800',
+  failed: 'bg-red-100 text-red-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+};
+
 function YesNo({ value }) {
   if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>;
   return <span className={value ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>{value ? 'Yes' : 'No'}</span>;
@@ -118,9 +132,10 @@ export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  // confirmation included: non-client-scoped staff must send client_id to the
-  // calendar/availability API, else the backend returns client_id_required.
-  const isAdminOps = user && ['admin', 'operations', 'confirmation'].includes(user.role);
+  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+  const isConfirmation = user?.role === 'confirmation';
+  const showClientDropdown = isAdminOps || isConfirmation;
+
 
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
@@ -128,6 +143,8 @@ export default function Calendar() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [from, setFrom] = useState(todayYMD());
   const [to, setTo] = useState(addDays(todayYMD(), 13));
+
+
   const [clientId, setClientId] = useState('1');
   const [clients, setClients] = useState([]);
   useEffect(() => {
@@ -140,37 +157,67 @@ export default function Calendar() {
       })
       .catch(() => setClients([]));
   }, [isAdminOps]);
+
   const [data, setData] = useState({ slots: [], appointments: [] });
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState('');
   const [selectedAppt, setSelectedAppt] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [confirmFilter, setConfirmFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+
+  const clientsRef = useRef([]);
+  useEffect(() => {
+    if (!showClientDropdown) return;
+    apiClient.listClients().then((res) => {
+      const list = Array.isArray(res) ? res : (res?.clients ?? []);
+      clientsRef.current = list;
+      setClients(list);
+      // dropdown roles skip the mount fetch — trigger it here once clients are ready
+      fetchData(from, to, clientId, true);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async (f, t, cid, isFirst) => {
     setError('');
     if (isFirst) setLoading(true); else setRefetching(true);
     try {
-      const params = { from: f, to: t };
-      if (isAdminOps && cid) params.client_id = Number(cid);
-      const res = await apiClient.getCalendar(params);
-      setData({
-        slots: Array.isArray(res?.slots) ? res.slots : [],
-        appointments: Array.isArray(res?.appointments) ? res.appointments : [],
-      });
+      // backend requires client_id for dropdown roles — fan out over all clients when none selected
+      const needsFanOut = showClientDropdown && !cid;
+      const ids = needsFanOut ? clientsRef.current.map(c => c.id) : null;
+
+      if (needsFanOut && ids.length > 0) {
+        const results = await Promise.all(
+          ids.map(id => apiClient.getCalendar({ from: f, to: t, client_id: id }))
+        );
+        const allSlots = results.flatMap(r => Array.isArray(r?.slots) ? r.slots : []);
+        const allAppts = results.flatMap(r => Array.isArray(r?.appointments) ? r.appointments : []);
+        setData({ slots: allSlots, appointments: allAppts });
+      } else {
+        const params = { from: f, to: t };
+        if (cid) params.client_id = Number(cid);
+        const res = await apiClient.getCalendar(params);
+        setData({
+          slots: Array.isArray(res?.slots) ? res.slots : [],
+          appointments: Array.isArray(res?.appointments) ? res.appointments : [],
+        });
+      }
     } catch (err) {
       setError(err.message || 'Failed to load calendar.');
       setData({ slots: [], appointments: [] });
     } finally {
       if (isFirst) setLoading(false); else setRefetching(false);
     }
-  }, [isAdminOps]);
+  }, [isConfirmation, showClientDropdown]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstRender = useRef(true);
   const calendarRef = useRef(null);
+
   useEffect(() => {
+    if (showClientDropdown) return; // waits for listClients to resolve first
     fetchData(from, to, clientId, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -194,6 +241,8 @@ export default function Calendar() {
     if (!slotsByDay[s.date]) slotsByDay[s.date] = [];
     slotsByDay[s.date].push(s);
   }
+  const slotsByDayRef = useRef(slotsByDay);
+  slotsByDayRef.current = slotsByDay;
   const apptsByDay = {};
   for (const a of (data.appointments || [])) {
     const day = getApptDate(a?.appointment_at);
@@ -204,24 +253,26 @@ export default function Calendar() {
   for (const arr of Object.values(apptsByDay)) {
     arr.sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
   }
-
+// for new pull 
+// for new pull 
   const days = buildDayRange(from, to);
 
-  useEffect(() => { setPage(0); }, [search, from, to]);
+  useEffect(() => { setPage(0); }, [search, confirmFilter, from, to]);
 
   const searchLower = search.trim().toLowerCase();
-  const filteredApptsByDay = searchLower
-    ? Object.fromEntries(
-        Object.entries(apptsByDay).map(([day, appts]) => [
-          day,
-          appts.filter((a) =>
-            [a.prospect_name, a.address, a.phone, a.assigned_closer, a.campaign_source, a.qualification, a.outcome]
-              .some((v) => v && String(v).toLowerCase().includes(searchLower))
-          ),
-        ])
-      )
-    : apptsByDay;
-  const visibleDays = searchLower
+  const filteredApptsByDay = Object.fromEntries(
+    Object.entries(apptsByDay).map(([day, appts]) => [
+      day,
+      appts.filter((a) => {
+        if (searchLower && ![a.prospect_name, a.address, a.phone, a.assigned_closer, a.campaign_source, a.qualification, a.outcome]
+          .some((v) => v && String(v).toLowerCase().includes(searchLower))) return false;
+        if (confirmFilter && confirmationSummary(a.confirmations) !== confirmFilter) return false;
+        return true;
+      }),
+    ])
+  );
+  const isFiltered = searchLower || confirmFilter;
+  const visibleDays = isFiltered
     ? days.filter((day) => (filteredApptsByDay[day] || []).length > 0)
     : days;
 
@@ -229,12 +280,36 @@ export default function Calendar() {
   const pagedDays = visibleDays.slice(page * pageSize, (page + 1) * pageSize);
 
   const calendarEvents = (data.appointments || [])
+    .filter(a => !confirmFilter || confirmationSummary(a.confirmations) === confirmFilter)
     .map(apptToEvent)
     .filter(Boolean);
 
-  const handleEventClick = ({ event }) => {
+  const availabilityEvents = (data.slots || []).flatMap(s => {
+    if (!s?.date || !s?.start_time || !s?.end_time) return [];
+    const blocked = Number(s.capacity) === 0;
+    return [{
+      start: `${s.date}T${s.start_time}`,
+      end: `${s.date}T${s.end_time}`,
+      display: 'background',
+      color: blocked ? '#fee2e2' : '#dcfce7',
+      extendedProps: { isAvailability: true },
+    }];
+  });
+
+  const handleEventClick = async ({ event }) => {
     const appt = event.extendedProps?.appointment;
-    if (appt) setSelectedAppt(appt);
+    if (!appt) return;
+    setSelectedAppt(appt);
+    setModalLoading(true);
+    try {
+      const data = await apiClient.getAppointment(appt.id);
+      const full = data?.appointment || data;
+      if (full) setSelectedAppt(full);
+    } catch {
+      // keep the summary data already shown
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const handleDatesSet = useCallback(({ startStr, endStr }) => {
@@ -259,7 +334,7 @@ export default function Calendar() {
         </div>
           
         {/* Controls toolbar */}
-        <div className="flex flex-wrap items-center gap-3 ">
+        <div className="flex flex-wrap items-center gap-3 bg-white rounded-md border border-gray-200 p-2 shadow-sm">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-9 gap-2 font-normal min-w-0 flex-1 sm:flex-none sm:min-w-[210px] justify-start">
@@ -303,8 +378,36 @@ export default function Calendar() {
           >
             {refetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">Refresh</span>
+            
           </Button>
 
+
+          <Select value={confirmFilter || '_all'} onValueChange={v => setConfirmFilter(v === '_all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-40 shrink-0">
+              <SelectValue placeholder="Confirmation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {showClientDropdown && clients.length > 0 && (
+            <Select value={clientId || '_all'} onValueChange={v => setClientId(v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-9 w-44 shrink-0">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All clients</SelectItem>
+                {clients.map(c => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
           {isAdminOps && (
             <select
               className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -315,7 +418,9 @@ export default function Calendar() {
                 <option key={c.id} value={String(c.id)}>{c.name}</option>
               ))}
             </select>
+
           )}
+          
 
           <div className="flex rounded-md border border-input overflow-hidden ml-auto">
             <button
@@ -341,6 +446,15 @@ export default function Calendar() {
               <span className="hidden sm:inline">Calendar</span>
             </button>
           </div>
+          <div className={`
+            w-full
+          `}>
+           <Searchbar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search appointments…"
+          />
+          </div>
         </div>
 
         {error && (
@@ -353,6 +467,26 @@ export default function Calendar() {
           </div>
         ) : view === 'calendar' ? (
           <>
+          <style>{`
+            .fc .fc-button-primary {
+              background-color: #3b82f6 !important;
+              border-color: #3b82f6 !important;
+            }
+            .fc .fc-button-primary:hover {
+              background-color: #2563eb !important;
+              border-color: #2563eb !important;
+            }
+            .fc .fc-button-primary:not(:disabled):active,
+            .fc .fc-button-primary:not(:disabled).fc-button-active {
+              background-color: #1d4ed8 !important;
+              border-color: #1d4ed8 !important;
+            }
+            .fc .fc-button-primary:focus {
+              box-shadow: 0 0 0 2px rgba(59,130,246,0.4) !important;
+            }
+            .fc-day-available { background-color: rgba(34,197,94,0.10) !important; }
+            .fc-day-blocked   { background-color: rgba(239,68,68,0.10)  !important; }
+          `}</style>
           <Card>
             <CardContent className="pt-4 pb-2 px-2 sm:px-6 sm:pb-4">
               <FullCalendar
@@ -373,7 +507,27 @@ export default function Calendar() {
                   listWeek: { buttonText: 'Week list' },
                   timeGridDay: { buttonText: 'Day' },
                 }}
-                events={calendarEvents}
+                events={[...calendarEvents, ...availabilityEvents]}
+                eventContent={(arg) => {
+                  const appt = arg.event.extendedProps?.appointment;
+                  const summary = confirmationSummary(appt?.confirmations);
+                  const dotColor = summary === 'confirmed' ? '#16a34a' : summary === 'failed' ? '#dc2626' : '#ca8a04';
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', padding: '0 2px' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} title={`Confirmation: ${summary}`} />
+                      <span style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {arg.event.title}
+                      </span>
+                    </div>
+                  );
+                }}
+                dayCellClassNames={(arg) => {
+                  if (arg.view.type !== 'dayGridMonth') return [];
+                  const ymd = toYMD(arg.date);
+                  const daySlots = slotsByDayRef.current[ymd];
+                  if (!daySlots?.length) return [];
+                  return [daySlots.every(s => Number(s.capacity) === 0) ? 'fc-day-blocked' : 'fc-day-available'];
+                }}
                 eventClick={handleEventClick}
                 datesSet={handleDatesSet}
                 height="auto"
@@ -393,13 +547,18 @@ export default function Calendar() {
             </CardContent>
           </Card>
 
-          <Dialog open={!!selectedAppt} onOpenChange={(open) => !open && setSelectedAppt(null)}>
+          <Dialog open={!!selectedAppt} onOpenChange={(open) => { if (!open) { setSelectedAppt(null); setModalLoading(false); } }}>
             <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{selectedAppt?.prospect_name || 'Appointment'}</DialogTitle>
                 <DialogDescription>{selectedAppt ? formatFullDateTime(selectedAppt.appointment_at) : ''}</DialogDescription>
               </DialogHeader>
-              {selectedAppt && (
+              {modalLoading && (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {selectedAppt && !modalLoading && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-1.5">
                     <Badge className={QUAL_BADGE[selectedAppt.qualification] || 'bg-muted text-muted-foreground'}>
@@ -450,6 +609,13 @@ export default function Calendar() {
                     <ModalRow label="Utility bill">{selectedAppt.utility_bill_raw || '—'}</ModalRow>
                   </div>
 
+                  {Array.isArray(selectedAppt.confirmations) && selectedAppt.confirmations.length > 0 && (
+                    <div className="space-y-2 border-t pt-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confirmations</p>
+                      <ConfirmationBadges confirmations={selectedAppt.confirmations} />
+                    </div>
+                  )}
+
                   {selectedAppt.recording_url && (
                     <ModalRow label="Recording">
                       <a href={selectedAppt.recording_url} target="_blank" rel="noopener noreferrer"
@@ -481,13 +647,9 @@ export default function Calendar() {
           <div className="py-20 text-center text-muted-foreground text-sm">"From" date must be ≤ "To" date.</div>
         ) : (
           <>
-          <Searchbar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search appointments…"
-          />
+         
           {visibleDays.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground text-sm">No appointments match "{search}"</div>
+            <div className="py-20 text-center text-muted-foreground text-sm">No appointments match the current filters.</div>
           ) : (
           <>
           <div className="flex flex-col gap-3">
@@ -502,6 +664,8 @@ export default function Calendar() {
                       <div className="flex flex-wrap gap-1.5">
                         {daySlots.length === 0 ? (
                           <span className="text-xs text-muted-foreground">Closed</span>
+                        ) : daySlots.every(s => Number(s.capacity) === 0) ? (
+                          <Badge className="bg-red-100 text-red-700">Unavailable</Badge>
                         ) : daySlots.map((s, i) => (
                           <Badge key={i} className={s.source === 'specific' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}>
                             {s.start_time}–{s.end_time} · cap {s.capacity}
@@ -526,6 +690,9 @@ export default function Calendar() {
                               <Badge className={clientDecisionColor(a.client_decision)}>{clientDecisionLabel(a.client_decision)}</Badge>
                               {a.show_status && <Badge className={SHOW_STATUS_BADGE[a.show_status] || 'bg-muted text-muted-foreground'}>{a.show_status.replace(/_/g, ' ')}</Badge>}
                               {a.sale_status && <Badge className={SALE_STATUS_BADGE[a.sale_status] || 'bg-muted text-muted-foreground'}>{a.sale_status.replace(/_/g, ' ')}</Badge>}
+                              <Badge className={CONFIRM_BADGE[confirmationSummary(a.confirmations)]}>
+                                {confirmationSummary(a.confirmations)}
+                              </Badge>
                             </div>
                           </div>
                         ))}
