@@ -79,7 +79,7 @@ export default function Leads() {
     }
   }, []);
 
-  useEffect(() => { fetchRows(filters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchRows(filters); }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => setFilters(f => ({ ...f, [key]: value }));
   const handleRefresh = () => fetchRows(filters);
@@ -141,7 +141,7 @@ export default function Leads() {
           {isClient ? 'My appointments' : 'Appointments'}
         </h1>
 
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end bg-white p-2 rounded-md border border-gray-300 shadow-sm">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Qualification</p>
             <Select value={filters.qualification} onValueChange={v => setFilter('qualification', v === '_all' ? '' : v)}>
