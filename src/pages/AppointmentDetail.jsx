@@ -823,68 +823,6 @@ export default function AppointmentDetail() {
           </Card>
         )}
 
-        {/* Confirmations panel */}
-        {showPanels && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Confirmations</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {confRows.map(row => (
-                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{row.label}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      value={row.status}
-                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
-                    >
-                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONF_STATUSES.map(s => (
-                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Note"
-                      value={row.note}
-                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
-                      className="h-8 text-sm flex-1 min-w-[120px]"
-                    />
-                    <Input
-                      placeholder="Recording URL"
-                      value={row.recording_url}
-                      onChange={e => updateConfRow(row.stage, 'recording_url', e.target.value)}
-                      className="h-8 text-sm flex-1 min-w-[120px]"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 shrink-0"
-                      disabled={confSaving[row.stage] || !canEdit}
-                      onClick={() => saveConfirmation(row.stage, row.status, row.note, row.recording_url)}
-                    >
-                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
-                    </Button>
-                  </div>
-                  {row.recording_url && (
-                    <a href={row.recording_url} target="_blank" rel="noopener noreferrer"
-                       className="text-primary underline-offset-4 hover:underline text-xs">
-                      Listen to confirmation recording
-                    </a>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Client decision panel */}
         {showClientDecision && (
           <Card>
@@ -1027,6 +965,68 @@ export default function AppointmentDetail() {
                   )}
                 </>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Confirmations panel */}
+        {showPanels && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Confirmations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {confRows.map(row => (
+                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{row.label}</p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                      value={row.status}
+                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
+                    >
+                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONF_STATUSES.map(s => (
+                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Note"
+                      value={row.note}
+                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
+                    <Input
+                      placeholder="Recording URL"
+                      value={row.recording_url}
+                      onChange={e => updateConfRow(row.stage, 'recording_url', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0"
+                      disabled={confSaving[row.stage] || !canEdit}
+                      onClick={() => saveConfirmation(row.stage, row.status, row.note, row.recording_url)}
+                    >
+                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                  {row.recording_url && (
+                    <a href={row.recording_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary underline-offset-4 hover:underline text-xs">
+                      Listen to confirmation recording
+                    </a>
+                  )}
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}

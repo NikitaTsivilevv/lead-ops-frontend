@@ -32,10 +32,9 @@ const QUAL_COLORS = {
 
 const OUTCOME_COLORS = {
   sold: 'bg-green-100 text-green-800',
-  'not sold': 'bg-red-100 text-red-800',
+  not_sold: 'bg-red-100 text-red-800',
   showed: 'bg-blue-100 text-blue-800',
-  'no-show': 'bg-gray-100 text-gray-700',
-  'reschedule needed': 'bg-orange-100 text-orange-800',
+  no_show: 'bg-gray-100 text-gray-700',
   pending: 'bg-yellow-100 text-yellow-800',
 };
 
@@ -247,12 +246,10 @@ export default function Leads() {
               <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="showed">Showed</SelectItem>
-                <SelectItem value="no-show">No-show</SelectItem>
+                <SelectItem value="no_show">No-show</SelectItem>
                 <SelectItem value="sold">Sold</SelectItem>
-                <SelectItem value="not sold">Not sold</SelectItem>
-                <SelectItem value="reschedule needed">Reschedule needed</SelectItem>
+                <SelectItem value="not_sold">Not sold</SelectItem>
               </SelectContent>
             </Select>
           </div>

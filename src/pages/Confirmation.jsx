@@ -18,10 +18,13 @@ function bucket(lead) {
   if (lead.client_decision === 'rejected') return 'rejected';
   if (lead.qualification === 'pending') return 'qualification';
   if (lead.qualification !== 'qualified') return null; // disqualified: off-board
-  const past = lead.appointment_at && new Date(lead.appointment_at) < new Date();
-  if (!past) return nextConfirmationColumn(lead);
+  // Show / No-show only once an outcome is actually recorded.
+  if (lead.show_status === 'show') return 'show';
   if (lead.show_status === 'no_show') return 'no-show';
-  return 'show'; // showed or outcome not yet recorded
+  // Otherwise the lead is still in the confirmation funnel — bucket by the
+  // earliest stage not yet confirmed (1st pending -> 1st, 1st confirmed & 2nd
+  // pending -> 2nd, etc.), regardless of whether the appointment date passed.
+  return nextConfirmationColumn(lead);
 }
 
 const CARD_TINT = {
