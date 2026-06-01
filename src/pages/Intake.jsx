@@ -30,7 +30,6 @@ const INITIAL = {
   phone: '',
   appointment_at: '',
   recording_url: '',
-  campaign_source: '',
   caller_notes: '',
 };
 
@@ -186,7 +185,6 @@ export default function Intake() {
       phone: form.phone || null,
       appointment_at: form.appointment_at ? new Date(form.appointment_at).toISOString() : null,
       recording_url: form.recording_url || null,
-      campaign_source: form.campaign_source || null,
       caller_notes: form.caller_notes || null,
     };
 
@@ -362,14 +360,6 @@ export default function Intake() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="campaign_source">Campaign / source</Label>
-                  <Input
-                    id="campaign_source"
-                    value={form.campaign_source}
-                    onChange={e => setField('campaign_source', e.target.value)}
-                  />
-                </div>
               </div>
 
               <div className="space-y-1.5">
