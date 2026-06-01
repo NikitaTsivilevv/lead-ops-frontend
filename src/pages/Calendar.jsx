@@ -406,7 +406,8 @@ export default function Calendar() {
                 ))}
               </SelectContent>
             </Select>
-
+          )}
+          
           {isAdminOps && (
             <select
               className="h-9 rounded-md border border-input bg-background px-2 text-sm"
