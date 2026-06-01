@@ -55,6 +55,7 @@ export const apiClient = {
   },
   getAppointment: (id) => request(`/api/appointments/${id}`),
   setQualification: (id, body) => request(`/api/appointments/${id}/qualification`, { method: 'PATCH', body }),
+  updateLeadInfo: (id, body) => request(`/api/appointments/${id}/lead-info`, { method: 'PATCH', body }),
   addConfirmation: (id, body) => request(`/api/appointments/${id}/confirmations`, { method: 'POST', body }),
   setClientDecision: (id, body) => request(`/api/appointments/${id}/client-decision`, { method: 'PATCH', body }),
   setOutcome: (id, body) => request(`/api/appointments/${id}/outcome`, { method: 'PATCH', body }),
