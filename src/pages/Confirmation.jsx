@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { apiClient } from '@/api/apiClient';
 
-const STAGE_OF_COLUMN = { '1st': 'day_before', '2nd': 'morning_of', 'final': '2h_before' };
-
 // Earliest confirmation stage not yet 'confirmed'. Returns '1st' | '2nd' | 'final'.
 function nextConfirmationColumn(lead) {
   const byStage = Object.fromEntries((lead.confirmations || []).map(c => [c.stage, c.status]));
