@@ -17,6 +17,8 @@ import ConfirmationBadges from '@/components/ConfirmationBadges';
 import BillingSection from '@/components/BillingSection';
 import { Badge, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
+const RENOVATION_OPTIONS = ['Solar', 'Roof', 'HVAC / AC', 'Windows and Doors', 'Kitchen', 'Bathroom', 'Painting', 'Other'];
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatET(isoString, opts) {
@@ -217,6 +219,10 @@ export default function AppointmentDetail() {
   }, []);
 
   const canEdit = user?.role !== 'client';
+  const canEditLeadInfo = ['admin', 'operations', 'confirmation', 'qa'].includes(user?.role);
+  const [editingLead, setEditingLead] = useState(false);
+  const [leadForm, setLeadForm] = useState(null);
+  const [leadSaving, setLeadSaving] = useState(false);
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
   const showClientDecision = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
 
@@ -432,6 +438,50 @@ export default function AppointmentDetail() {
     }
   };
 
+  // ── Lead info edit ───────────────────────────────────────────────────────
+  const startEditLead = () => {
+    setLeadForm({
+      prospect_name: appt.prospect_name || '',
+      address: appt.address || '',
+      renovation_items: Array.isArray(appt.renovation_items) ? appt.renovation_items : [],
+      other_renovation_text: appt.other_renovation_text || '',
+      q_homeowner: appt.q_homeowner ?? null,
+      q_mortgage_current: appt.q_mortgage_current ?? null,
+      q_taxes_paid_3y: appt.q_taxes_paid_3y ?? null,
+      q_bankruptcy_3y: appt.q_bankruptcy_3y ?? null,
+      q_reverse_mortgage: appt.q_reverse_mortgage ?? null,
+      credit_score_band: appt.credit_score_band || '',
+      credit_score_text: appt.credit_score_text || '',
+      utility_bill_raw: appt.utility_bill_raw || '',
+      phone: appt.phone || '',
+      caller_name: appt.caller_name || '',
+      caller_notes: appt.caller_notes || '',
+      recording_url: appt.recording_url || '',
+    });
+    setEditingLead(true);
+  };
+  const cancelEditLead = () => { setEditingLead(false); setLeadForm(null); };
+  const setLeadField = (k, v) => setLeadForm(f => ({ ...f, [k]: v }));
+  const saveLeadInfo = async () => {
+    setLeadSaving(true);
+    try {
+      const body = { ...leadForm };
+      // QA cannot edit recordings — don't send the field.
+      if (user?.role === 'qa') delete body.recording_url;
+      // Normalize empty strings to null for nullable text fields.
+      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url']
+        .forEach(k => { if (body[k] === '') body[k] = null; });
+      await apiClient.updateLeadInfo(id, body);
+      await loadAppt();
+      setEditingLead(false);
+      toast.success('Lead info saved');
+    } catch (err) {
+      toast.error(err?.payload?.message || err.message || 'Failed to save lead info');
+    } finally {
+      setLeadSaving(false);
+    }
+  };
+
   // ── Admin payout save ────────────────────────────────────────────────────
   const saveAdminPayout = async () => {
     setPaError('');
@@ -528,49 +578,179 @@ export default function AppointmentDetail() {
 
         {/* Lead info */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Lead info</CardTitle>
+            {canEditLeadInfo && !editingLead && (
+              <Button size="sm" variant="outline" className="h-7" onClick={startEditLead}>Edit</Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
-            <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
-            <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
-            <InfoRow label="Address">{appt.address || '—'}</InfoRow>
-            <InfoRow label="Renovations">
-              {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
-                ? <span className="flex flex-wrap gap-1">
-                    {appt.renovation_items.map(r => (
-                      <span key={r} className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs">{r}</span>
+            {!editingLead && (
+              <>
+                <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
+                <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
+                <InfoRow label="Address">{appt.address || '—'}</InfoRow>
+                <InfoRow label="Renovations">
+                  {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
+                    ? <span className="flex flex-wrap gap-1">
+                        {appt.renovation_items.map(r => (
+                          <span key={r} className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs">{r}</span>
+                        ))}
+                      </span>
+                    : '—'}
+                </InfoRow>
+
+                <div className="pt-1 border-t border-border" />
+
+                <InfoRow label="Homeowner?"><YesNo value={appt.q_homeowner} /></InfoRow>
+                <InfoRow label="Mortgage current?"><YesNo value={appt.q_mortgage_current} /></InfoRow>
+                <InfoRow label="Taxes paid (3y)?"><YesNo value={appt.q_taxes_paid_3y} /></InfoRow>
+                <InfoRow label="Bankruptcy (3y)?"><YesNo value={appt.q_bankruptcy_3y} /></InfoRow>
+                <InfoRow label="Reverse mortgage?"><YesNo value={appt.q_reverse_mortgage} /></InfoRow>
+                <InfoRow label="Credit score">
+                  {appt.credit_score_band
+                    ? appt.credit_score_band.charAt(0).toUpperCase() + appt.credit_score_band.slice(1) + ' 650'
+                    : '—'}
+                </InfoRow>
+                <InfoRow label="Avg. utility bill">{appt.utility_bill_raw || '—'}</InfoRow>
+
+                <div className="pt-1 border-t border-border" />
+
+                <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
+                <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
+                <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
+                {appt.recording_url && user?.role !== 'qa' && (
+                  <InfoRow label="Recording">
+                    <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary underline-offset-4 hover:underline text-sm">
+                      Listen to recording
+                    </a>
+                  </InfoRow>
+                )}
+              </>
+            )}
+            {editingLead && leadForm && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Prospect name</Label>
+                  <Input value={leadForm.prospect_name} onChange={e => setLeadField('prospect_name', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Address</Label>
+                  <Input value={leadForm.address} onChange={e => setLeadField('address', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Renovation items</Label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {RENOVATION_OPTIONS.map(opt => (
+                      <div key={opt} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`edit-reno-${opt}`}
+                          checked={leadForm.renovation_items.includes(opt)}
+                          onCheckedChange={checked => {
+                            const current = leadForm.renovation_items;
+                            setLeadField('renovation_items', checked
+                              ? [...current, opt]
+                              : current.filter(r => r !== opt));
+                          }}
+                        />
+                        <Label htmlFor={`edit-reno-${opt}`} className="text-sm font-normal cursor-pointer">{opt}</Label>
+                      </div>
                     ))}
-                  </span>
-                : '—'}
-            </InfoRow>
+                  </div>
+                  {leadForm.renovation_items.includes('Other') && (
+                    <div className="space-y-1 mt-1">
+                      <Label className="text-sm">Other renovation (describe)</Label>
+                      <Input
+                        value={leadForm.other_renovation_text}
+                        onChange={e => setLeadField('other_renovation_text', e.target.value)}
+                        placeholder="Describe other renovation"
+                      />
+                    </div>
+                  )}
+                </div>
 
-            <div className="pt-1 border-t border-border" />
+                <div className="pt-1 border-t border-border" />
 
-            <InfoRow label="Homeowner?"><YesNo value={appt.q_homeowner} /></InfoRow>
-            <InfoRow label="Mortgage current?"><YesNo value={appt.q_mortgage_current} /></InfoRow>
-            <InfoRow label="Taxes paid (3y)?"><YesNo value={appt.q_taxes_paid_3y} /></InfoRow>
-            <InfoRow label="Bankruptcy (3y)?"><YesNo value={appt.q_bankruptcy_3y} /></InfoRow>
-            <InfoRow label="Reverse mortgage?"><YesNo value={appt.q_reverse_mortgage} /></InfoRow>
-            <InfoRow label="Credit score">
-              {appt.credit_score_band
-                ? appt.credit_score_band.charAt(0).toUpperCase() + appt.credit_score_band.slice(1) + ' 650'
-                : '—'}
-            </InfoRow>
-            <InfoRow label="Avg. utility bill">{appt.utility_bill_raw || '—'}</InfoRow>
+                {[
+                  { key: 'q_homeowner', label: 'Homeowner?' },
+                  { key: 'q_mortgage_current', label: 'Mortgage current?' },
+                  { key: 'q_taxes_paid_3y', label: 'Taxes paid (3y)?' },
+                  { key: 'q_bankruptcy_3y', label: 'Bankruptcy (3y)?' },
+                  { key: 'q_reverse_mortgage', label: 'Reverse mortgage?' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-sm">{label}</Label>
+                    <RadioGroup
+                      value={leadForm[key] === true ? 'yes' : leadForm[key] === false ? 'no' : ''}
+                      onValueChange={v => setLeadField(key, v === 'yes' ? true : v === 'no' ? false : null)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="yes" id={`edit-${key}-yes`} />
+                        <Label htmlFor={`edit-${key}-yes`} className="font-normal cursor-pointer text-sm">Yes</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="no" id={`edit-${key}-no`} />
+                        <Label htmlFor={`edit-${key}-no`} className="font-normal cursor-pointer text-sm">No</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                ))}
 
-            <div className="pt-1 border-t border-border" />
+                <div className="space-y-1">
+                  <Label className="text-sm">Credit score band</Label>
+                  <select
+                    className="h-9 w-40 rounded-md border bg-background px-2 text-sm"
+                    value={leadForm.credit_score_band}
+                    onChange={e => setLeadField('credit_score_band', e.target.value)}
+                  >
+                    <option value="">—</option>
+                    <option value="over">Over 650</option>
+                    <option value="under">Under 650</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Credit score (text)</Label>
+                  <Input value={leadForm.credit_score_text} onChange={e => setLeadField('credit_score_text', e.target.value)} placeholder="e.g. 720" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Avg. utility bill</Label>
+                  <Input value={leadForm.utility_bill_raw} onChange={e => setLeadField('utility_bill_raw', e.target.value)} placeholder="e.g. $150/mo" />
+                </div>
 
-            <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
-            <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
-            <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
-            {appt.recording_url && (
-              <InfoRow label="Recording">
-                <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
-                   className="text-primary underline-offset-4 hover:underline text-sm">
-                  Listen to recording
-                </a>
-              </InfoRow>
+                <div className="pt-1 border-t border-border" />
+
+                <div className="space-y-1">
+                  <Label className="text-sm">Phone</Label>
+                  <Input value={leadForm.phone} onChange={e => setLeadField('phone', e.target.value)} placeholder="Phone number" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Caller name</Label>
+                  <Input value={leadForm.caller_name} onChange={e => setLeadField('caller_name', e.target.value)} placeholder="Caller name" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Caller notes</Label>
+                  <Textarea
+                    value={leadForm.caller_notes}
+                    onChange={e => setLeadField('caller_notes', e.target.value)}
+                    placeholder="Notes from the caller"
+                    className="h-20 resize-none"
+                  />
+                </div>
+                {user?.role !== 'qa' && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Recording URL</Label>
+                    <Input value={leadForm.recording_url} onChange={e => setLeadField('recording_url', e.target.value)} placeholder="https://..." />
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" disabled={leadSaving} onClick={saveLeadInfo}>
+                    {leadSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={leadSaving} onClick={cancelEditLead}>Cancel</Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
