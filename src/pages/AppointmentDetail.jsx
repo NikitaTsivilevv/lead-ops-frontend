@@ -560,7 +560,6 @@ export default function AppointmentDetail() {
             <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
             <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
             <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
-            <InfoRow label="Campaign source">{appt.campaign_source || '—'}</InfoRow>
             {appt.recording_url && (
               <InfoRow label="Recording">
                 <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
@@ -636,6 +635,56 @@ export default function AppointmentDetail() {
               >
                 {qualSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Confirmations panel */}
+        {showPanels && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Confirmations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {confRows.map(row => (
+                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{row.label}</p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                      value={row.status}
+                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
+                    >
+                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONF_STATUSES.map(s => (
+                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Note"
+                      value={row.note}
+                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0"
+                      disabled={confSaving[row.stage] || !canEdit}
+                      onClick={() => saveConfirmation(row.stage, row.status, row.note)}
+                    >
+                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}
@@ -961,56 +1010,6 @@ export default function AppointmentDetail() {
               >
                 {rdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redistribute'}
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Confirmations panel */}
-        {showPanels && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Confirmations</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {confRows.map(row => (
-                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{row.label}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      value={row.status}
-                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
-                    >
-                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONF_STATUSES.map(s => (
-                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Note"
-                      value={row.note}
-                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
-                      className="h-8 text-sm flex-1 min-w-[120px]"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 shrink-0"
-                      disabled={confSaving[row.stage] || !canEdit}
-                      onClick={() => saveConfirmation(row.stage, row.status, row.note)}
-                    >
-                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         )}
