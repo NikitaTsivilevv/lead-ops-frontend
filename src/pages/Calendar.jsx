@@ -215,7 +215,7 @@ export default function Calendar() {
 
   const firstRender = useRef(true);
   const calendarRef = useRef(null);
-  
+
   useEffect(() => {
     if (showClientDropdown) return; // waits for listClients to resolve first
     fetchData(from, to, clientId, true);
@@ -253,7 +253,7 @@ export default function Calendar() {
   for (const arr of Object.values(apptsByDay)) {
     arr.sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
   }
-
+// for new pull 
   const days = buildDayRange(from, to);
 
   useEffect(() => { setPage(0); }, [search, confirmFilter, from, to]);
@@ -418,6 +418,7 @@ export default function Calendar() {
             </select>
 
           )}
+          
 
           <div className="flex rounded-md border border-input overflow-hidden ml-auto">
             <button
