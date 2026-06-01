@@ -17,6 +17,8 @@ import ConfirmationBadges from '@/components/ConfirmationBadges';
 import BillingSection from '@/components/BillingSection';
 import { Badge, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
+const RENOVATION_OPTIONS = ['Solar', 'Roof', 'HVAC / AC', 'Windows and Doors', 'Kitchen', 'Bathroom', 'Painting', 'Other'];
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatET(isoString, opts) {
@@ -124,6 +126,7 @@ function buildConfRows(confirmations = []) {
     label: s.label,
     status: map[s.key]?.status || 'pending',
     note: map[s.key]?.note || '',
+    recording_url: map[s.key]?.recording_url || '',
     confirmed_at: map[s.key]?.confirmed_at || null,
   }));
 }
@@ -187,6 +190,7 @@ export default function AppointmentDetail() {
   const [ocMeetingNotes, setOcMeetingNotes] = useState('');
   const [ocSalesNotes, setOcSalesNotes] = useState('');
   const [ocNeedReschedule, setOcNeedReschedule] = useState(false);
+  const [ocRescheduleNote, setOcRescheduleNote] = useState('');
   const [ocSaving, setOcSaving] = useState(false);
   const [ocError, setOcError] = useState('');
 
@@ -207,12 +211,18 @@ export default function AppointmentDetail() {
   const [paSaving, setPaSaving] = useState(false);
   const [paError, setPaError] = useState('');
 
-  // TODO: replace with GET /api/clients once the endpoint is exposed.
-  const CLIENT_OPTIONS = [
-    { id: 1, name: 'Guy Green Constructions' },
-  ];
+  const [clientOptions, setClientOptions] = useState([]);
+  useEffect(() => {
+    apiClient.listClients()
+      .then((data) => setClientOptions(Array.isArray(data) ? data : (data?.clients || [])))
+      .catch(() => setClientOptions([]));
+  }, []);
 
   const canEdit = user?.role !== 'client';
+  const canEditLeadInfo = ['admin', 'operations', 'confirmation', 'qa'].includes(user?.role);
+  const [editingLead, setEditingLead] = useState(false);
+  const [leadForm, setLeadForm] = useState(null);
+  const [leadSaving, setLeadSaving] = useState(false);
   const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
   const showClientDecision = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
 
@@ -235,6 +245,7 @@ export default function AppointmentDetail() {
       setOcMeetingNotes(a.meeting_notes || '');
       setOcSalesNotes(a.sales_notes || '');
       setOcNeedReschedule(!!a.need_reschedule);
+      setOcRescheduleNote(a.reschedule_note || '');
       // Reschedule pre-population
       setRescheduleIso(isoToDatetimeLocal(a.appointment_at));
       // Admin payout pre-population
@@ -287,10 +298,10 @@ export default function AppointmentDetail() {
   };
 
   // ── Confirmation save ────────────────────────────────────────────────────
-  const saveConfirmation = async (stage, status, note) => {
+  const saveConfirmation = async (stage, status, note, recording_url) => {
     setConfSaving(s => ({ ...s, [stage]: true }));
     try {
-      const result = await apiClient.addConfirmation(id, { stage, status, note });
+      const result = await apiClient.addConfirmation(id, { stage, status, note, recording_url: recording_url || null });
       // backend returns full confirmations list
       const list = Array.isArray(result) ? result : (result?.confirmations || []);
       if (list.length > 0) setConfRows(buildConfRows(list));
@@ -392,6 +403,7 @@ export default function AppointmentDetail() {
         show_status: ocShowStatus || null,
         sale_status: ocSaleStatus || null,
         reschedule_requested: ocNeedReschedule,
+        reschedule_note: ocNeedReschedule ? (ocRescheduleNote || null) : null,
         no_show_reason: ocShowStatus === 'no_show' ? (ocNoShowReason || null) : null,
         sale_amount: ocSaleStatus === 'sold' && ocSaleAmount !== '' ? Number(ocSaleAmount) : null,
         items_sold: ocSaleStatus === 'sold' && ocItemsSold ? ocItemsSold : null,
@@ -423,6 +435,50 @@ export default function AppointmentDetail() {
       setRdError(explainRedistError(err));
     } finally {
       setRdSaving(false);
+    }
+  };
+
+  // ── Lead info edit ───────────────────────────────────────────────────────
+  const startEditLead = () => {
+    setLeadForm({
+      prospect_name: appt.prospect_name || '',
+      address: appt.address || '',
+      renovation_items: Array.isArray(appt.renovation_items) ? appt.renovation_items : [],
+      other_renovation_text: appt.other_renovation_text || '',
+      q_homeowner: appt.q_homeowner ?? null,
+      q_mortgage_current: appt.q_mortgage_current ?? null,
+      q_taxes_paid_3y: appt.q_taxes_paid_3y ?? null,
+      q_bankruptcy_3y: appt.q_bankruptcy_3y ?? null,
+      q_reverse_mortgage: appt.q_reverse_mortgage ?? null,
+      credit_score_band: appt.credit_score_band || '',
+      credit_score_text: appt.credit_score_text || '',
+      utility_bill_raw: appt.utility_bill_raw || '',
+      phone: appt.phone || '',
+      caller_name: appt.caller_name || '',
+      caller_notes: appt.caller_notes || '',
+      recording_url: appt.recording_url || '',
+    });
+    setEditingLead(true);
+  };
+  const cancelEditLead = () => { setEditingLead(false); setLeadForm(null); };
+  const setLeadField = (k, v) => setLeadForm(f => ({ ...f, [k]: v }));
+  const saveLeadInfo = async () => {
+    setLeadSaving(true);
+    try {
+      const body = { ...leadForm };
+      // QA cannot edit recordings — don't send the field.
+      if (user?.role === 'qa') delete body.recording_url;
+      // Normalize empty strings to null for nullable text fields.
+      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url']
+        .forEach(k => { if (body[k] === '') body[k] = null; });
+      await apiClient.updateLeadInfo(id, body);
+      await loadAppt();
+      setEditingLead(false);
+      toast.success('Lead info saved');
+    } catch (err) {
+      toast.error(err?.payload?.message || err.message || 'Failed to save lead info');
+    } finally {
+      setLeadSaving(false);
     }
   };
 
@@ -522,48 +578,179 @@ export default function AppointmentDetail() {
 
         {/* Lead info */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Lead info</CardTitle>
+            {canEditLeadInfo && !editingLead && (
+              <Button size="sm" variant="outline" className="h-7" onClick={startEditLead}>Edit</Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
-            <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
-            <InfoRow label="Address">{appt.address || '—'}</InfoRow>
-            <InfoRow label="Renovations">
-              {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
-                ? <span className="flex flex-wrap gap-1">
-                    {appt.renovation_items.map(r => (
-                      <span key={r} className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs">{r}</span>
+            {!editingLead && (
+              <>
+                <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
+                <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
+                <InfoRow label="Address">{appt.address || '—'}</InfoRow>
+                <InfoRow label="Renovations">
+                  {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
+                    ? <span className="flex flex-wrap gap-1">
+                        {appt.renovation_items.map(r => (
+                          <span key={r} className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs">{r}</span>
+                        ))}
+                      </span>
+                    : '—'}
+                </InfoRow>
+
+                <div className="pt-1 border-t border-border" />
+
+                <InfoRow label="Homeowner?"><YesNo value={appt.q_homeowner} /></InfoRow>
+                <InfoRow label="Mortgage current?"><YesNo value={appt.q_mortgage_current} /></InfoRow>
+                <InfoRow label="Taxes paid (3y)?"><YesNo value={appt.q_taxes_paid_3y} /></InfoRow>
+                <InfoRow label="Bankruptcy (3y)?"><YesNo value={appt.q_bankruptcy_3y} /></InfoRow>
+                <InfoRow label="Reverse mortgage?"><YesNo value={appt.q_reverse_mortgage} /></InfoRow>
+                <InfoRow label="Credit score">
+                  {appt.credit_score_band
+                    ? appt.credit_score_band.charAt(0).toUpperCase() + appt.credit_score_band.slice(1) + ' 650'
+                    : '—'}
+                </InfoRow>
+                <InfoRow label="Avg. utility bill">{appt.utility_bill_raw || '—'}</InfoRow>
+
+                <div className="pt-1 border-t border-border" />
+
+                <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
+                <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
+                <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
+                {appt.recording_url && user?.role !== 'qa' && (
+                  <InfoRow label="Recording">
+                    <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary underline-offset-4 hover:underline text-sm">
+                      Listen to recording
+                    </a>
+                  </InfoRow>
+                )}
+              </>
+            )}
+            {editingLead && leadForm && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Prospect name</Label>
+                  <Input value={leadForm.prospect_name} onChange={e => setLeadField('prospect_name', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Address</Label>
+                  <Input value={leadForm.address} onChange={e => setLeadField('address', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Renovation items</Label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {RENOVATION_OPTIONS.map(opt => (
+                      <div key={opt} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`edit-reno-${opt}`}
+                          checked={leadForm.renovation_items.includes(opt)}
+                          onCheckedChange={checked => {
+                            const current = leadForm.renovation_items;
+                            setLeadField('renovation_items', checked
+                              ? [...current, opt]
+                              : current.filter(r => r !== opt));
+                          }}
+                        />
+                        <Label htmlFor={`edit-reno-${opt}`} className="text-sm font-normal cursor-pointer">{opt}</Label>
+                      </div>
                     ))}
-                  </span>
-                : '—'}
-            </InfoRow>
+                  </div>
+                  {leadForm.renovation_items.includes('Other') && (
+                    <div className="space-y-1 mt-1">
+                      <Label className="text-sm">Other renovation (describe)</Label>
+                      <Input
+                        value={leadForm.other_renovation_text}
+                        onChange={e => setLeadField('other_renovation_text', e.target.value)}
+                        placeholder="Describe other renovation"
+                      />
+                    </div>
+                  )}
+                </div>
 
-            <div className="pt-1 border-t border-border" />
+                <div className="pt-1 border-t border-border" />
 
-            <InfoRow label="Homeowner?"><YesNo value={appt.q_homeowner} /></InfoRow>
-            <InfoRow label="Mortgage current?"><YesNo value={appt.q_mortgage_current} /></InfoRow>
-            <InfoRow label="Taxes paid (3y)?"><YesNo value={appt.q_taxes_paid_3y} /></InfoRow>
-            <InfoRow label="Bankruptcy (3y)?"><YesNo value={appt.q_bankruptcy_3y} /></InfoRow>
-            <InfoRow label="Reverse mortgage?"><YesNo value={appt.q_reverse_mortgage} /></InfoRow>
-            <InfoRow label="Credit score">
-              {appt.credit_score_band
-                ? appt.credit_score_band.charAt(0).toUpperCase() + appt.credit_score_band.slice(1) + ' 650'
-                : '—'}
-            </InfoRow>
-            <InfoRow label="Avg. utility bill">{appt.utility_bill_raw || '—'}</InfoRow>
+                {[
+                  { key: 'q_homeowner', label: 'Homeowner?' },
+                  { key: 'q_mortgage_current', label: 'Mortgage current?' },
+                  { key: 'q_taxes_paid_3y', label: 'Taxes paid (3y)?' },
+                  { key: 'q_bankruptcy_3y', label: 'Bankruptcy (3y)?' },
+                  { key: 'q_reverse_mortgage', label: 'Reverse mortgage?' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-sm">{label}</Label>
+                    <RadioGroup
+                      value={leadForm[key] === true ? 'yes' : leadForm[key] === false ? 'no' : ''}
+                      onValueChange={v => setLeadField(key, v === 'yes' ? true : v === 'no' ? false : null)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="yes" id={`edit-${key}-yes`} />
+                        <Label htmlFor={`edit-${key}-yes`} className="font-normal cursor-pointer text-sm">Yes</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="no" id={`edit-${key}-no`} />
+                        <Label htmlFor={`edit-${key}-no`} className="font-normal cursor-pointer text-sm">No</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                ))}
 
-            <div className="pt-1 border-t border-border" />
+                <div className="space-y-1">
+                  <Label className="text-sm">Credit score band</Label>
+                  <select
+                    className="h-9 w-40 rounded-md border bg-background px-2 text-sm"
+                    value={leadForm.credit_score_band}
+                    onChange={e => setLeadField('credit_score_band', e.target.value)}
+                  >
+                    <option value="">—</option>
+                    <option value="over">Over 650</option>
+                    <option value="under">Under 650</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Credit score (text)</Label>
+                  <Input value={leadForm.credit_score_text} onChange={e => setLeadField('credit_score_text', e.target.value)} placeholder="e.g. 720" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Avg. utility bill</Label>
+                  <Input value={leadForm.utility_bill_raw} onChange={e => setLeadField('utility_bill_raw', e.target.value)} placeholder="e.g. $150/mo" />
+                </div>
 
-            <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
-            <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
-            <InfoRow label="Campaign source">{appt.campaign_source || '—'}</InfoRow>
-            {appt.recording_url && (
-              <InfoRow label="Recording">
-                <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
-                   className="text-primary underline-offset-4 hover:underline text-sm">
-                  Listen to recording
-                </a>
-              </InfoRow>
+                <div className="pt-1 border-t border-border" />
+
+                <div className="space-y-1">
+                  <Label className="text-sm">Phone</Label>
+                  <Input value={leadForm.phone} onChange={e => setLeadField('phone', e.target.value)} placeholder="Phone number" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Caller name</Label>
+                  <Input value={leadForm.caller_name} onChange={e => setLeadField('caller_name', e.target.value)} placeholder="Caller name" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Caller notes</Label>
+                  <Textarea
+                    value={leadForm.caller_notes}
+                    onChange={e => setLeadField('caller_notes', e.target.value)}
+                    placeholder="Notes from the caller"
+                    className="h-20 resize-none"
+                  />
+                </div>
+                {user?.role !== 'qa' && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Recording URL</Label>
+                    <Input value={leadForm.recording_url} onChange={e => setLeadField('recording_url', e.target.value)} placeholder="https://..." />
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" disabled={leadSaving} onClick={saveLeadInfo}>
+                    {leadSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={leadSaving} onClick={cancelEditLead}>Cancel</Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -782,6 +969,68 @@ export default function AppointmentDetail() {
           </Card>
         )}
 
+        {/* Confirmations panel */}
+        {showPanels && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Confirmations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {confRows.map(row => (
+                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{row.label}</p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                      value={row.status}
+                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
+                    >
+                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONF_STATUSES.map(s => (
+                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Note"
+                      value={row.note}
+                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
+                    <Input
+                      placeholder="Recording URL"
+                      value={row.recording_url}
+                      onChange={e => updateConfRow(row.stage, 'recording_url', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0"
+                      disabled={confSaving[row.stage] || !canEdit}
+                      onClick={() => saveConfirmation(row.stage, row.status, row.note, row.recording_url)}
+                    >
+                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                  {row.recording_url && (
+                    <a href={row.recording_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary underline-offset-4 hover:underline text-xs">
+                      Listen to confirmation recording
+                    </a>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Outcome panel */}
         {showOutcome && (
           <Card>
@@ -832,6 +1081,16 @@ export default function AppointmentDetail() {
                     </div>
                   )}
 
+                  <div className="space-y-1">
+                    <Label className="text-sm">Notes</Label>
+                    <Textarea
+                      placeholder="Optional"
+                      value={ocMeetingNotes}
+                      onChange={e => setOcMeetingNotes(e.target.value)}
+                      className="h-20 resize-none"
+                    />
+                  </div>
+
                   {/* 2. Sale status */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">2. Sale status</Label>
@@ -873,15 +1132,6 @@ export default function AppointmentDetail() {
                   )}
 
                   <div className="space-y-1">
-                    <Label className="text-sm">Meeting notes</Label>
-                    <Textarea
-                      placeholder="Optional"
-                      value={ocMeetingNotes}
-                      onChange={e => setOcMeetingNotes(e.target.value)}
-                      className="h-20 resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-sm">Sales notes</Label>
                     <Textarea
                       placeholder="Optional"
@@ -899,6 +1149,18 @@ export default function AppointmentDetail() {
                     />
                     <Label htmlFor="oc-reschedule" className="font-normal cursor-pointer text-sm">Reschedule needed</Label>
                   </div>
+
+                  {ocNeedReschedule && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Reschedule note (reason / suggested time)</Label>
+                      <Textarea
+                        placeholder="e.g. Homeowner asked for next Tuesday afternoon"
+                        value={ocRescheduleNote}
+                        onChange={e => setOcRescheduleNote(e.target.value)}
+                        className="h-16 resize-none"
+                      />
+                    </div>
+                  )}
 
                   <Button
                     size="sm"
@@ -934,7 +1196,7 @@ export default function AppointmentDetail() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CLIENT_OPTIONS.map(c => (
+                    {clientOptions.map(c => (
                       <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -957,56 +1219,6 @@ export default function AppointmentDetail() {
               >
                 {rdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redistribute'}
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Confirmations panel */}
-        {showPanels && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Confirmations</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {confRows.map(row => (
-                <div key={row.stage} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{row.label}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {row.confirmed_at ? formatET(row.confirmed_at) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      value={row.status}
-                      onValueChange={v => updateConfRow(row.stage, 'status', v)}
-                    >
-                      <SelectTrigger className="w-32 h-8 text-sm shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONF_STATUSES.map(s => (
-                          <SelectItem key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Note"
-                      value={row.note}
-                      onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
-                      className="h-8 text-sm flex-1 min-w-[120px]"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 shrink-0"
-                      disabled={confSaving[row.stage] || !canEdit}
-                      onClick={() => saveConfirmation(row.stage, row.status, row.note)}
-                    >
-                      {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         )}

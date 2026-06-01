@@ -18,21 +18,29 @@ import Pipeline from '@/pages/Pipeline';
 import MyLeads from '@/pages/MyLeads';
 import AdminCallers from '@/pages/AdminCallers';
 import AdminClients from '@/pages/AdminClients';
+import AdminUsers from '@/pages/AdminUsers';
+import AcceptInvite from '@/pages/AcceptInvite';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<RoleHome />} />
     <Route path="/login" element={<AuthGate />} />
+    <Route path="/accept-invite" element={<AcceptInvite />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
     <Route path="/my-leads" element={<RequireAuth allow={['caller','admin']}><MyLeads /></RequireAuth>} />
-    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Leads /></RequireAuth>} />
+    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
-    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client']}><AppointmentDetail /></RequireAuth>} />
+    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><AppointmentDetail /></RequireAuth>} />
     <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Pipeline /></RequireAuth>} />
     <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
     <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client']}><AvailabilityEditor /></RequireAuth>} />
     <Route path="/admin/callers" element={<RequireAuth allow={['admin']}><AdminCallers /></RequireAuth>} />
     <Route path="/admin/clients" element={<RequireAuth allow={['admin']}><AdminClients /></RequireAuth>} />
+    <Route path="/admin/users" element={<RequireAuth allow={['admin']}><AdminUsers /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );

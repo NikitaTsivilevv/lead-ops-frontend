@@ -9,6 +9,7 @@ const ROLE_HOME = {
   operations:    '/leads',
   admin:         '/leads',
   client:        '/leads',
+  qa:            '/leads',
 };
 
 export function RoleHome() {

@@ -136,14 +136,28 @@ export default function Calendar() {
   const isConfirmation = user?.role === 'confirmation';
   const showClientDropdown = isAdminOps || isConfirmation;
 
+
   const showEditAvailability = user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
 
   const [view, setView] = useState('table'); // 'table' | 'calendar'
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [from, setFrom] = useState(todayYMD());
   const [to, setTo] = useState(addDays(todayYMD(), 13));
-  const [clientId, setClientId] = useState('');
+
+
+  const [clientId, setClientId] = useState('1');
   const [clients, setClients] = useState([]);
+  useEffect(() => {
+    if (!isAdminOps) return;
+    apiClient.listClients()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data.clients || []);
+        setClients(list);
+        if (list[0]) setClientId(String(list[0].id));
+      })
+      .catch(() => setClients([]));
+  }, [isAdminOps]);
+
   const [data, setData] = useState({ slots: [], appointments: [] });
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
@@ -366,6 +380,7 @@ export default function Calendar() {
             
           </Button>
 
+
           <Select value={confirmFilter || '_all'} onValueChange={v => setConfirmFilter(v === '_all' ? '' : v)}>
             <SelectTrigger className="h-9 w-40 shrink-0">
               <SelectValue placeholder="Confirmation" />
@@ -390,6 +405,18 @@ export default function Calendar() {
                 ))}
               </SelectContent>
             </Select>
+
+          {isAdminOps && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </select>
+
           )}
 
           <div className="flex rounded-md border border-input overflow-hidden ml-auto">

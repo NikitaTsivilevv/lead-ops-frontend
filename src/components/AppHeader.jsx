@@ -11,6 +11,7 @@ const ROLE_LABELS = {
   confirmation: 'Confirmation',
   client: 'Client',
   caller: 'Caller',
+  qa: 'QA',
 };
 
 function NavLinks({ user, onClick }) {
@@ -23,10 +24,10 @@ function NavLinks({ user, onClick }) {
 
   return (
     <>
-      {user.role !== 'caller' && (
+      {!['caller','qa'].includes(user.role) && (
         <NavLink to="/pipeline" className={linkClass} onClick={onClick}>Pipeline</NavLink>
       )}
-      {user.role !== 'caller' && (
+      {!['caller','qa'].includes(user.role) && (
         <NavLink to="/calendar" className={linkClass} onClick={onClick}>Calendar</NavLink>
       )}
       {user.role !== 'caller' && (
@@ -45,6 +46,7 @@ function NavLinks({ user, onClick }) {
         <>
           <NavLink to="/admin/clients" className={linkClass} onClick={onClick}>Clients</NavLink>
           <NavLink to="/admin/callers" className={linkClass} onClick={onClick}>Callers</NavLink>
+          <NavLink to="/admin/users" className={linkClass} onClick={onClick}>Users</NavLink>
         </>
       )}
     </>
