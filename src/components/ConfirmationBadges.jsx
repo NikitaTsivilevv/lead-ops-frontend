@@ -1,5 +1,4 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 
 const STAGE_LABEL = {
   day_before: '1st',
@@ -9,12 +8,12 @@ const STAGE_LABEL = {
 
 const STAGE_ORDER = ['day_before', 'morning_of', '2h_before'];
 
-function variantFor(status) {
-  if (status === 'confirmed') return 'default';
-  if (status === 'failed') return 'destructive';
-  if (status === 'reschedule') return 'secondary';
-  return 'outline';
-}
+const STATUS_CLASS = {
+  confirmed: 'bg-green-100 text-green-800 border-green-200',
+  pending: 'bg-orange-100 text-orange-800 border-orange-200',
+  failed: 'bg-red-100 text-red-800 border-red-200',
+  reschedule: 'bg-blue-100 text-blue-800 border-blue-200',
+};
 
 export default function ConfirmationBadges({ confirmations }) {
   const byStage = Object.fromEntries((confirmations || []).map(c => [c.stage, c]));
@@ -22,10 +21,13 @@ export default function ConfirmationBadges({ confirmations }) {
     <div className="flex gap-1.5 flex-wrap">
       {STAGE_ORDER.map((s) => {
         const row = byStage[s];
+        const status = row?.status || 'pending';
+        const cls = STATUS_CLASS[status] || STATUS_CLASS.pending;
         return (
-          <Badge key={s} variant={variantFor(row?.status)} title={row?.status || 'pending'}>
-            {STAGE_LABEL[s]}: {row?.status || 'pending'}
-          </Badge>
+          <span key={s} title={status}
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+            {STAGE_LABEL[s]}: {status}
+          </span>
         );
       })}
     </div>
