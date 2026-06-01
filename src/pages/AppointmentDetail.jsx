@@ -124,6 +124,7 @@ function buildConfRows(confirmations = []) {
     label: s.label,
     status: map[s.key]?.status || 'pending',
     note: map[s.key]?.note || '',
+    recording_url: map[s.key]?.recording_url || '',
     confirmed_at: map[s.key]?.confirmed_at || null,
   }));
 }
@@ -289,10 +290,10 @@ export default function AppointmentDetail() {
   };
 
   // ── Confirmation save ────────────────────────────────────────────────────
-  const saveConfirmation = async (stage, status, note) => {
+  const saveConfirmation = async (stage, status, note, recording_url) => {
     setConfSaving(s => ({ ...s, [stage]: true }));
     try {
-      const result = await apiClient.addConfirmation(id, { stage, status, note });
+      const result = await apiClient.addConfirmation(id, { stage, status, note, recording_url: recording_url || null });
       // backend returns full confirmations list
       const list = Array.isArray(result) ? result : (result?.confirmations || []);
       if (list.length > 0) setConfRows(buildConfRows(list));
@@ -674,15 +675,27 @@ export default function AppointmentDetail() {
                       onChange={e => updateConfRow(row.stage, 'note', e.target.value)}
                       className="h-8 text-sm flex-1 min-w-[120px]"
                     />
+                    <Input
+                      placeholder="Recording URL"
+                      value={row.recording_url}
+                      onChange={e => updateConfRow(row.stage, 'recording_url', e.target.value)}
+                      className="h-8 text-sm flex-1 min-w-[120px]"
+                    />
                     <Button
                       size="sm"
                       className="h-8 shrink-0"
                       disabled={confSaving[row.stage] || !canEdit}
-                      onClick={() => saveConfirmation(row.stage, row.status, row.note)}
+                      onClick={() => saveConfirmation(row.stage, row.status, row.note, row.recording_url)}
                     >
                       {confSaving[row.stage] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
                     </Button>
                   </div>
+                  {row.recording_url && (
+                    <a href={row.recording_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary underline-offset-4 hover:underline text-xs">
+                      Listen to confirmation recording
+                    </a>
+                  )}
                 </div>
               ))}
             </CardContent>
