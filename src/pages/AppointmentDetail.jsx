@@ -188,6 +188,7 @@ export default function AppointmentDetail() {
   const [ocMeetingNotes, setOcMeetingNotes] = useState('');
   const [ocSalesNotes, setOcSalesNotes] = useState('');
   const [ocNeedReschedule, setOcNeedReschedule] = useState(false);
+  const [ocRescheduleNote, setOcRescheduleNote] = useState('');
   const [ocSaving, setOcSaving] = useState(false);
   const [ocError, setOcError] = useState('');
 
@@ -238,6 +239,7 @@ export default function AppointmentDetail() {
       setOcMeetingNotes(a.meeting_notes || '');
       setOcSalesNotes(a.sales_notes || '');
       setOcNeedReschedule(!!a.need_reschedule);
+      setOcRescheduleNote(a.reschedule_note || '');
       // Reschedule pre-population
       setRescheduleIso(isoToDatetimeLocal(a.appointment_at));
       // Admin payout pre-population
@@ -395,6 +397,7 @@ export default function AppointmentDetail() {
         show_status: ocShowStatus || null,
         sale_status: ocSaleStatus || null,
         reschedule_requested: ocNeedReschedule,
+        reschedule_note: ocNeedReschedule ? (ocRescheduleNote || null) : null,
         no_show_reason: ocShowStatus === 'no_show' ? (ocNoShowReason || null) : null,
         sale_amount: ocSaleStatus === 'sold' && ocSaleAmount !== '' ? Number(ocSaleAmount) : null,
         items_sold: ocSaleStatus === 'sold' && ocItemsSold ? ocItemsSold : null,
@@ -898,6 +901,16 @@ export default function AppointmentDetail() {
                     </div>
                   )}
 
+                  <div className="space-y-1">
+                    <Label className="text-sm">Notes</Label>
+                    <Textarea
+                      placeholder="Optional"
+                      value={ocMeetingNotes}
+                      onChange={e => setOcMeetingNotes(e.target.value)}
+                      className="h-20 resize-none"
+                    />
+                  </div>
+
                   {/* 2. Sale status */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">2. Sale status</Label>
@@ -939,15 +952,6 @@ export default function AppointmentDetail() {
                   )}
 
                   <div className="space-y-1">
-                    <Label className="text-sm">Meeting notes</Label>
-                    <Textarea
-                      placeholder="Optional"
-                      value={ocMeetingNotes}
-                      onChange={e => setOcMeetingNotes(e.target.value)}
-                      className="h-20 resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-sm">Sales notes</Label>
                     <Textarea
                       placeholder="Optional"
@@ -965,6 +969,18 @@ export default function AppointmentDetail() {
                     />
                     <Label htmlFor="oc-reschedule" className="font-normal cursor-pointer text-sm">Reschedule needed</Label>
                   </div>
+
+                  {ocNeedReschedule && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Reschedule note (reason / suggested time)</Label>
+                      <Textarea
+                        placeholder="e.g. Homeowner asked for next Tuesday afternoon"
+                        value={ocRescheduleNote}
+                        onChange={e => setOcRescheduleNote(e.target.value)}
+                        className="h-16 resize-none"
+                      />
+                    </div>
+                  )}
 
                   <Button
                     size="sm"
