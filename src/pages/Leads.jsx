@@ -6,7 +6,7 @@ import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
@@ -88,6 +88,46 @@ function ClientDecisionBadge({ value }) {
 
 const EMPTY_FILTERS = { qualification: '', outcome: '', confirmation_status: '', client_id: '', from: '', to: '' };
 
+function toDateInput(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Date ranges (Mon–Sun weeks) returned as YYYY-MM-DD strings for the date filters.
+function getQuickRange(key) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow = (today.getDay() + 6) % 7; // 0 = Monday … 6 = Sunday
+  const shift = (base, days) => { const d = new Date(base); d.setDate(base.getDate() + days); return d; };
+  switch (key) {
+    case 'today':
+      return { from: toDateInput(today), to: toDateInput(today) };
+    case 'tomorrow': {
+      const t = shift(today, 1);
+      return { from: toDateInput(t), to: toDateInput(t) };
+    }
+    case 'this_week': {
+      const mon = shift(today, -dow);
+      return { from: toDateInput(mon), to: toDateInput(shift(mon, 6)) };
+    }
+    case 'last_week': {
+      const mon = shift(today, -dow - 7);
+      return { from: toDateInput(mon), to: toDateInput(shift(mon, 6)) };
+    }
+    default:
+      return { from: '', to: '' };
+  }
+}
+
+const QUICK_DATES = [
+  { key: 'today', label: 'Today' },
+  { key: 'tomorrow', label: 'Tomorrow' },
+  { key: 'this_week', label: 'This week' },
+  { key: 'last_week', label: 'Last week' },
+];
+
 export default function Leads() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -142,6 +182,17 @@ export default function Leads() {
   };
   const handleRefresh = () => fetchRows(filters);
   const handleClear = () => { setFilters(EMPTY_FILTERS); fetchRows(EMPTY_FILTERS); };
+
+  const applyQuickDate = (key) => {
+    const { from, to } = getQuickRange(key);
+    const next = { ...filters, from, to };
+    setFilters(next);
+    fetchRows(next);
+  };
+  const isQuickActive = (key) => {
+    const { from, to } = getQuickRange(key);
+    return filters.from === from && filters.to === to;
+  };
 
   const columns = [
     {
@@ -326,6 +377,23 @@ export default function Leads() {
             </div>
           )}
 
+          <div className="col-span-2 sm:col-span-full space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Quick filters</p>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_DATES.map(({ key, label }) => (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={isQuickActive(key) ? 'default' : 'outline'}
+                  onClick={() => applyQuickDate(key)}
+                  className="h-9"
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">From</p>
             <Input type="date" className="h-9 w-full sm:w-36" value={filters.from} onChange={e => setFilter('from', e.target.value)} />
@@ -337,10 +405,7 @@ export default function Leads() {
           </div>
 
           <div className="col-span-2 sm:col-span-1 flex gap-2">
-            <Button size="sm" variant="outline" onClick={handleRefresh} className="h-9 gap-1.5 flex-1 sm:flex-none">
-              <RefreshCw className="w-3.5 h-3.5" />
-              Refresh
-            </Button>
+           
             <Button size="sm" variant="ghost" onClick={handleClear} className="h-9 text-muted-foreground flex-1 sm:flex-none">
               Clear
             </Button>
