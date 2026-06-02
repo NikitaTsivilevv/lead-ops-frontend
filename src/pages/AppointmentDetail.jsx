@@ -15,6 +15,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import { confirmationPlan, STAGE_HUMAN_LABEL } from '@/lib/confirmationPlan';
 import BillingSection from '@/components/BillingSection';
 import { Badge, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
@@ -111,24 +112,21 @@ function InfoRow({ label, children }) {
 
 // ── Confirmation stages ────────────────────────────────────────────────────
 
-const STAGES = [
-  { key: 'day_before', label: 'Day-before confirmation' },
-  { key: 'morning_of', label: 'Morning-of confirmation' },
-  { key: '2h_before',  label: '2-hour confirmation' },
-];
-
 const CONF_STATUSES = ['pending', 'confirmed', 'failed', 'reschedule'];
 
-function buildConfRows(confirmations = []) {
+// Confirmation stages are ordinal and depend on the meeting's local hour (Phase 2):
+// noon-or-later → day_before/morning_of/2h_before; earlier → day_before/night_before.
+// Driven by confirmationPlan so this matches the board and the badges.
+function buildConfRows(confirmations = [], appointmentAt = null) {
   const map = {};
   confirmations.forEach(c => { map[c.stage] = c; });
-  return STAGES.map(s => ({
-    stage: s.key,
-    label: s.label,
-    status: map[s.key]?.status || 'pending',
-    note: map[s.key]?.note || '',
-    recording_url: map[s.key]?.recording_url || '',
-    confirmed_at: map[s.key]?.confirmed_at || null,
+  return confirmationPlan(appointmentAt).map(stage => ({
+    stage,
+    label: `${STAGE_HUMAN_LABEL[stage] || stage} confirmation`,
+    status: map[stage]?.status || 'pending',
+    note: map[stage]?.note || '',
+    recording_url: map[stage]?.recording_url || '',
+    confirmed_at: map[stage]?.confirmed_at || null,
   }));
 }
 
@@ -257,7 +255,7 @@ export default function AppointmentDetail() {
       setPaTeamPaid(!!a.team_paid);
       setPaApproveNote(a.team_approve_note || '');
       // confirmations may or may not be side-loaded
-      setConfRows(buildConfRows(a.confirmations || []));
+      setConfRows(buildConfRows(a.confirmations || [], a.appointment_at));
     } catch (err) {
       if (err.status === 404) setNotFound(true);
       else if (err.status === 403) setCdForbidden(true);
@@ -308,7 +306,7 @@ export default function AppointmentDetail() {
       const result = await apiClient.addConfirmation(id, { stage, status, note, recording_url: recording_url || null });
       // backend returns full confirmations list
       const list = Array.isArray(result) ? result : (result?.confirmations || []);
-      if (list.length > 0) setConfRows(buildConfRows(list));
+      if (list.length > 0) setConfRows(buildConfRows(list, appt?.appointment_at));
       else await loadAppt();
       toast.success('Confirmation saved');
     } finally {
@@ -589,7 +587,7 @@ export default function AppointmentDetail() {
                 {(appt.outcome || 'pending').replace(/_/g, ' ')}
               </Badge>
             </div>
-            <ConfirmationBadges confirmations={appt.confirmations || []} />
+            <ConfirmationBadges confirmations={appt.confirmations || []} appointmentAt={appt.appointment_at} />
           </div>
         </div>
 
