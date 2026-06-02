@@ -165,7 +165,7 @@ export default function Calendar() {
       .catch(() => setClients([]));
   }, [isAdminOps]);
 
-  const [data, setData] = useState({ slots: [], appointments: [] });
+  const [data, setData] = useState({ slots: [], appointments: [], unavailability: [] });
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState('');
@@ -200,16 +200,18 @@ export default function Calendar() {
         const results = await Promise.all(
           ids.map(id => apiClient.getCalendar({ from: f, to: t, client_id: id }))
         );
-        const allSlots = results.flatMap(r => Array.isArray(r?.slots) ? r.slots : []);
-        const allAppts = results.flatMap(r => Array.isArray(r?.appointments) ? r.appointments : []);
-        setData({ slots: allSlots, appointments: allAppts });
+        const allSlots   = results.flatMap(r => Array.isArray(r?.slots)          ? r.slots          : []);
+        const allAppts   = results.flatMap(r => Array.isArray(r?.appointments)   ? r.appointments   : []);
+        const allBlocks  = results.flatMap(r => Array.isArray(r?.unavailability) ? r.unavailability : []);
+        setData({ slots: allSlots, appointments: allAppts, unavailability: allBlocks });
       } else {
         const params = { from: f, to: t };
         if (cid) params.client_id = Number(cid);
         const res = await apiClient.getCalendar(params);
         setData({
-          slots: Array.isArray(res?.slots) ? res.slots : [],
-          appointments: Array.isArray(res?.appointments) ? res.appointments : [],
+          slots:          Array.isArray(res?.slots)          ? res.slots          : [],
+          appointments:   Array.isArray(res?.appointments)   ? res.appointments   : [],
+          unavailability: Array.isArray(res?.unavailability) ? res.unavailability : [],
         });
       }
     } catch (err) {
@@ -222,6 +224,7 @@ export default function Calendar() {
 
   const firstRender = useRef(true);
   const calendarRef = useRef(null);
+  const calendarRangeRef = useRef({ from, to });
 
   useEffect(() => {
     if (showClientDropdown) return; // waits for listClients to resolve first
@@ -234,6 +237,14 @@ export default function Calendar() {
     fetchData(from, to, clientId, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, clientId, view]);
+
+  // When clientId changes while in calendar view, refetch using the current visible range
+  useEffect(() => {
+    if (view !== 'calendar') return;
+    const { from: f, to: t } = calendarRangeRef.current;
+    fetchData(f, t, clientId, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const handleToday = () => {
     const f = todayYMD();
@@ -250,6 +261,22 @@ export default function Calendar() {
   }
   const slotsByDayRef = useRef(slotsByDay);
   slotsByDayRef.current = slotsByDay;
+
+  // Build a Set of YYYY-MM-DD dates covered by all-day unavailability blocks
+  const unavailAllDayDates = new Set();
+  for (const b of (data.unavailability || [])) {
+    if (!b.all_day) continue;
+    let cur = b.start_at.slice(0, 10);
+    const end = b.end_at.slice(0, 10);
+    let safety = 0;
+    while (cur <= end && safety < 366) {
+      unavailAllDayDates.add(cur);
+      cur = addDays(cur, 1);
+      safety++;
+    }
+  }
+  const unavailAllDayRef = useRef(unavailAllDayDates);
+  unavailAllDayRef.current = unavailAllDayDates;
   const apptsByDay = {};
   for (const a of (data.appointments || [])) {
     const day = getApptDate(a?.appointment_at);
@@ -303,6 +330,28 @@ export default function Calendar() {
     }];
   });
 
+  const unavailabilityEvents = (data.unavailability || []).map(b => {
+    const base = {
+      id:              `unavail-${b.id}`,
+      title:           b.title || 'Unavailable',
+      backgroundColor: '#ef4444',
+      borderColor:     '#dc2626',
+      textColor:       '#fff',
+      extendedProps:   { isUnavailability: true },
+    };
+    if (b.all_day) {
+      // Use raw UTC date strings — avoids the UTC→Eastern shift that renders a
+      // UTC-midnight block at 8 pm the previous day in Eastern time.
+      const startDate = b.start_at.slice(0, 10);
+      const endDate   = b.end_at.slice(0, 10);
+      // FullCalendar all-day end is exclusive; if UTC dates match (end stored as
+      // same-day 23:59 Z) bump by one so the event covers the full day.
+      return { ...base, start: startDate, end: startDate === endDate ? addDays(endDate, 1) : endDate, allDay: true };
+    }
+    // Partial-day: ISO strings + FullCalendar timeZone handles UTC→Eastern correctly.
+    return { ...base, start: b.start_at, end: b.end_at };
+  });
+
   const handleEventClick = async ({ event }) => {
     const appt = event.extendedProps?.appointment;
     if (!appt) return;
@@ -322,6 +371,7 @@ export default function Calendar() {
   const handleDatesSet = useCallback(({ startStr, endStr }) => {
     const f = startStr.slice(0, 10);
     const t = endStr.slice(0, 10);
+    calendarRangeRef.current = { from: f, to: t };
     fetchData(f, t, clientId, false);
   }, [fetchData, clientId]);
 
@@ -479,8 +529,9 @@ export default function Calendar() {
             .fc .fc-button-primary:focus {
               box-shadow: 0 0 0 2px rgba(59,130,246,0.4) !important;
             }
-            .fc-day-available { background-color: rgba(34,197,94,0.10) !important; }
-            .fc-day-blocked   { background-color: rgba(239,68,68,0.10)  !important; }
+            .fc-day-available    { background-color: rgba(34,197,94,0.10)  !important; }
+            .fc-day-blocked      { background-color: rgba(239,68,68,0.10)  !important; }
+            .fc-day-unavailable  { background-color: rgba(220,38,38,0.22)  !important; }
           `}</style>
           <Card>
             <CardContent className="pt-4 pb-2 px-2 sm:px-6 sm:pb-4">
@@ -502,8 +553,19 @@ export default function Calendar() {
                   listWeek: { buttonText: 'Week list' },
                   timeGridDay: { buttonText: 'Day' },
                 }}
-                events={[...calendarEvents, ...availabilityEvents]}
+                events={[...calendarEvents, ...availabilityEvents, ...unavailabilityEvents]}
                 eventContent={(arg) => {
+                  if (arg.event.extendedProps?.isAvailability) return; // background slot — no custom content
+                  if (arg.event.extendedProps?.isUnavailability) {
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, overflow: 'hidden', padding: '0 3px' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#fff', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff', fontWeight: 500 }}>
+                          {arg.event.title}
+                        </span>
+                      </div>
+                    );
+                  }
                   const appt = arg.event.extendedProps?.appointment;
                   const summary = confirmationSummary(appt?.confirmations);
                   const dotColor = summary === 'confirmed' ? '#16a34a' : summary === 'failed' ? '#dc2626' : '#ca8a04';
@@ -519,8 +581,11 @@ export default function Calendar() {
                   );
                 }}
                 dayCellClassNames={(arg) => {
-                  if (arg.view.type !== 'dayGridMonth') return [];
                   const ymd = toYMD(arg.date);
+                  // All-day unavailability → red cell in every view
+                  if (unavailAllDayRef.current.has(ymd)) return ['fc-day-unavailable'];
+                  // Schedule-based availability tinting — month view only
+                  if (arg.view.type !== 'dayGridMonth') return [];
                   const daySlots = slotsByDayRef.current[ymd];
                   if (!daySlots?.length) return [];
                   return [daySlots.every(s => Number(s.capacity) === 0) ? 'fc-day-blocked' : 'fc-day-available'];
@@ -671,6 +736,14 @@ export default function Calendar() {
                             {s.start_time}–{s.end_time} · cap {s.capacity}
                           </Badge>
                         ))}
+                        {(data.unavailability || [])
+                          .filter(b => day >= b.start_at.slice(0, 10) && day <= b.end_at.slice(0, 10))
+                          .map(b => (
+                            <Badge key={`u-${b.id}`} className="bg-red-100 text-red-700 border border-red-200">
+                              {b.title}
+                            </Badge>
+                          ))
+                        }
                       </div>
                     </div>
                     {dayAppts.length === 0 ? (
