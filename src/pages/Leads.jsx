@@ -241,7 +241,7 @@ export default function Leads() {
         </h1>
 
         {isClient && actionNeeded.length > 0 && (
-          <Alert className="border-amber-400 bg-amber-50 text-amber-900">
+          <Alert id="action-needed-banner" className="border-amber-400 bg-amber-50 text-amber-900 scroll-mt-20">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
             <AlertTitle className="text-amber-900">
               {actionNeeded.length} {actionNeeded.length === 1 ? 'lead needs' : 'leads need'} your action
