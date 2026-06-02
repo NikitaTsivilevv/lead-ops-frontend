@@ -79,7 +79,16 @@ export default function AppHeader() {
             <button
               type="button"
               aria-label={actionCount > 0 ? `${actionCount} leads need your action` : 'No action needed'}
-              onClick={() => navigate('/leads')}
+              onClick={() => {
+                // The client's home IS /leads, so navigate('/leads') alone is a no-op when
+                // already there. Bring the action-needed banner into view either way
+                // (navigate first for other pages, then scroll once it has mounted).
+                navigate('/leads');
+                setTimeout(() => {
+                  document.getElementById('action-needed-banner')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 120);
+              }}
               className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
                 actionCount > 0
                   ? 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'
