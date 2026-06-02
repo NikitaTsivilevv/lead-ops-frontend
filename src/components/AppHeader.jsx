@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LogOut, Menu } from 'lucide-react';
-
-const ROLE_LABELS = {
-  admin: 'Admin',
-  operations: 'Operations',
-  confirmation: 'Confirmation',
-  client: 'Client',
-  caller: 'Caller',
-  qa: 'QA',
-};
+import { LogOut, Menu, Bell } from 'lucide-react';
+import { roleLabel } from '@/lib/roles';
+import { apiClient } from '@/api/apiClient';
 
 function NavLinks({ user, onClick }) {
   const linkClass = ({ isActive }) =>
@@ -58,6 +52,14 @@ export default function AppHeader() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const isClient = user?.role === 'client';
+  const { data: actionNeeded = [] } = useQuery({
+    queryKey: ['action-needed'],
+    queryFn: () => apiClient.getActionNeeded(),
+    enabled: isClient,
+  });
+  const actionCount = actionNeeded.length;
+
   if (!user) return null;
 
   return (
@@ -73,10 +75,38 @@ export default function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-2 ml-auto">
+          {isClient && (
+            <button
+              type="button"
+              aria-label={actionCount > 0 ? `${actionCount} leads need your action` : 'No action needed'}
+              onClick={() => {
+                // The client's home IS /leads, so navigate('/leads') alone is a no-op when
+                // already there. Bring the action-needed banner into view either way
+                // (navigate first for other pages, then scroll once it has mounted).
+                navigate('/leads');
+                setTimeout(() => {
+                  document.getElementById('action-needed-banner')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 120);
+              }}
+              className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
+                actionCount > 0
+                  ? 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                  : 'border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              {actionCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-0.5 text-[10px] font-bold leading-none text-white bg-amber-500 rounded-full">
+                  {actionCount > 99 ? '99+' : actionCount}
+                </span>
+              )}
+            </button>
+          )}
           <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
             <span className="hidden lg:inline truncate max-w-[180px]">{user.email}</span>
             <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium shrink-0">
-              {ROLE_LABELS[user.role] || user.role}
+              {roleLabel(user.role)}
             </span>
           </div>
           <Button
@@ -101,7 +131,7 @@ export default function AppHeader() {
               <div className="p-4 border-b shrink-0">
                 <div className="text-sm font-medium truncate">{user.email}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {ROLE_LABELS[user.role] || user.role}
+                  {roleLabel(user.role)}
                 </div>
               </div>
               <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">

@@ -25,7 +25,10 @@ export default function EditLeadDialog({ lead, open, onOpenChange }) {
   const qc = useQueryClient();
   const [form, setForm] = useState(() => ({
     prospect_name: lead.prospect_name || '',
-    address: lead.address || '',
+    address_street: lead.address_street || '',
+    address_city: lead.address_city || '',
+    address_state: lead.address_state || '',
+    address_zip: lead.address_zip || '',
     renovation_items: lead.renovation_items || [],
     other_renovation_text: lead.other_renovation_text || '',
     credit_score_text: lead.credit_score_text || '',
@@ -50,7 +53,10 @@ export default function EditLeadDialog({ lead, open, onOpenChange }) {
     mutationFn: () => {
       const body = {
         prospect_name: form.prospect_name,
-        address: form.address,
+        address_street: form.address_street || null,
+        address_city: form.address_city || null,
+        address_state: form.address_state || null,
+        address_zip: form.address_zip || null,
         renovation_items: form.renovation_items,
         other_renovation_text: form.renovation_items.includes('Other')
           ? form.other_renovation_text
@@ -111,8 +117,22 @@ export default function EditLeadDialog({ lead, open, onOpenChange }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="address">Address *</Label>
-            <Input id="address" value={form.address} onChange={(e) => setField('address', e.target.value)} required />
+            <Label htmlFor="address_street">Street *</Label>
+            <Input id="address_street" value={form.address_street} onChange={(e) => setField('address_street', e.target.value)} placeholder="123 Main St" required />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5 col-span-1">
+              <Label htmlFor="address_city">City</Label>
+              <Input id="address_city" value={form.address_city} onChange={(e) => setField('address_city', e.target.value)} placeholder="City" />
+            </div>
+            <div className="space-y-1.5 col-span-1">
+              <Label htmlFor="address_state">State</Label>
+              <Input id="address_state" value={form.address_state} onChange={(e) => setField('address_state', e.target.value)} placeholder="FL" />
+            </div>
+            <div className="space-y-1.5 col-span-1">
+              <Label htmlFor="address_zip">Zip</Label>
+              <Input id="address_zip" value={form.address_zip} onChange={(e) => setField('address_zip', e.target.value)} placeholder="33101" />
+            </div>
           </div>
 
           <div className="space-y-2">

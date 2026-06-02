@@ -72,6 +72,8 @@ export const apiClient = {
   rescheduleAppointment: (id, isoDate) => request(`/api/appointments/${id}`, { method: 'PATCH', body: { appointment_at: isoDate } }),
   redistribute: (id, body) => request(`/api/appointments/${id}/redistribute`, { method: 'POST', body }),
   setAdminPayout: (id, body) => request(`/api/appointments/${id}/admin`, { method: 'PATCH', body }),
+  setRecordingVisibility: (id, allowed) => request(`/api/appointments/${id}/recording-visibility`, { method: 'PATCH', body: { allowed } }),
+  getActionNeeded: () => request('/api/appointments/action-needed').then((d) => d.appointments || []),
   listMyLeads: () => request('/api/leads/my'),
   updateMyLead: (id, body) => request(`/api/leads/my/${id}`, { method: 'PATCH', body }),
   getAppointmentHistory: (appointmentId) => request(`/api/appointments/${appointmentId}/history`),

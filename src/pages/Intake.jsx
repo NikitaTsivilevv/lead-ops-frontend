@@ -17,7 +17,10 @@ const INITIAL = {
   client_id: '',
   caller_name: '',
   prospect_name: '',
-  address: '',
+  address_street: '',
+  address_city: '',
+  address_state: '',
+  address_zip: '',
   renovation_items: [],
   other_renovation_text: '',
   q_homeowner: null,
@@ -170,7 +173,10 @@ export default function Intake() {
       caller_name: form.caller_name,
       client_id: form.client_id ? Number(form.client_id) : undefined,
       prospect_name: form.prospect_name,
-      address: form.address,
+      address_street: form.address_street || null,
+      address_city: form.address_city || null,
+      address_state: form.address_state || null,
+      address_zip: form.address_zip || null,
       renovation_items: form.renovation_items,
       other_renovation_text: form.renovation_items.includes('Other')
         ? form.other_renovation_text
@@ -187,6 +193,7 @@ export default function Intake() {
       recording_url: form.recording_url || null,
       caller_notes: form.caller_notes || null,
     };
+    // address is composed server-side from the structured fields; do not send a separate `address`.
 
     setSubmitting(true);
     try {
@@ -258,13 +265,43 @@ export default function Intake() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="address">Address *</Label>
+                  <Label htmlFor="address_street">Street *</Label>
                   <Input
-                    id="address"
-                    value={form.address}
-                    onChange={e => setField('address', e.target.value)}
+                    id="address_street"
+                    value={form.address_street}
+                    onChange={e => setField('address_street', e.target.value)}
+                    placeholder="123 Main St"
                     required
                   />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5 col-span-1">
+                    <Label htmlFor="address_city">City</Label>
+                    <Input
+                      id="address_city"
+                      value={form.address_city}
+                      onChange={e => setField('address_city', e.target.value)}
+                      placeholder="City"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-1">
+                    <Label htmlFor="address_state">State</Label>
+                    <Input
+                      id="address_state"
+                      value={form.address_state}
+                      onChange={e => setField('address_state', e.target.value)}
+                      placeholder="FL"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-1">
+                    <Label htmlFor="address_zip">Zip</Label>
+                    <Input
+                      id="address_zip"
+                      value={form.address_zip}
+                      onChange={e => setField('address_zip', e.target.value)}
+                      placeholder="33101"
+                    />
+                  </div>
                 </div>
               </div>
 

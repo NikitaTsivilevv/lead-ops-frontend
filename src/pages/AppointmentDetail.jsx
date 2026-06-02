@@ -10,10 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import { confirmationPlan, STAGE_HUMAN_LABEL } from '@/lib/confirmationPlan';
+import { leadDisplayName } from '@/lib/leadName';
 import BillingSection from '@/components/BillingSection';
 import { Badge, clientDecisionColor, clientDecisionLabel } from '@/components/AppointmentBadge';
 
@@ -110,24 +113,21 @@ function InfoRow({ label, children }) {
 
 // ── Confirmation stages ────────────────────────────────────────────────────
 
-const STAGES = [
-  { key: 'day_before', label: 'Day-before confirmation' },
-  { key: 'morning_of', label: 'Morning-of confirmation' },
-  { key: '2h_before',  label: '2-hour confirmation' },
-];
-
 const CONF_STATUSES = ['pending', 'confirmed', 'failed', 'reschedule'];
 
-function buildConfRows(confirmations = []) {
+// Confirmation stages are ordinal and depend on the meeting's local hour (Phase 2):
+// noon-or-later → day_before/morning_of/2h_before; earlier → day_before/night_before.
+// Driven by confirmationPlan so this matches the board and the badges.
+function buildConfRows(confirmations = [], appointmentAt = null) {
   const map = {};
   confirmations.forEach(c => { map[c.stage] = c; });
-  return STAGES.map(s => ({
-    stage: s.key,
-    label: s.label,
-    status: map[s.key]?.status || 'pending',
-    note: map[s.key]?.note || '',
-    recording_url: map[s.key]?.recording_url || '',
-    confirmed_at: map[s.key]?.confirmed_at || null,
+  return confirmationPlan(appointmentAt).map(stage => ({
+    stage,
+    label: `${STAGE_HUMAN_LABEL[stage] || stage} confirmation`,
+    status: map[stage]?.status || 'pending',
+    note: map[stage]?.note || '',
+    recording_url: map[stage]?.recording_url || '',
+    confirmed_at: map[stage]?.confirmed_at || null,
   }));
 }
 
@@ -211,6 +211,9 @@ export default function AppointmentDetail() {
   const [paSaving, setPaSaving] = useState(false);
   const [paError, setPaError] = useState('');
 
+  // Recording visibility toggle state (staff only)
+  const [recordingToggleSaving, setRecordingToggleSaving] = useState(false);
+
   const [clientOptions, setClientOptions] = useState([]);
   useEffect(() => {
     apiClient.listClients()
@@ -253,7 +256,7 @@ export default function AppointmentDetail() {
       setPaTeamPaid(!!a.team_paid);
       setPaApproveNote(a.team_approve_note || '');
       // confirmations may or may not be side-loaded
-      setConfRows(buildConfRows(a.confirmations || []));
+      setConfRows(buildConfRows(a.confirmations || [], a.appointment_at));
     } catch (err) {
       if (err.status === 404) setNotFound(true);
       else if (err.status === 403) setCdForbidden(true);
@@ -304,7 +307,7 @@ export default function AppointmentDetail() {
       const result = await apiClient.addConfirmation(id, { stage, status, note, recording_url: recording_url || null });
       // backend returns full confirmations list
       const list = Array.isArray(result) ? result : (result?.confirmations || []);
-      if (list.length > 0) setConfRows(buildConfRows(list));
+      if (list.length > 0) setConfRows(buildConfRows(list, appt?.appointment_at));
       else await loadAppt();
       toast.success('Confirmation saved');
     } finally {
@@ -442,7 +445,10 @@ export default function AppointmentDetail() {
   const startEditLead = () => {
     setLeadForm({
       prospect_name: appt.prospect_name || '',
-      address: appt.address || '',
+      address_street: appt.address_street || '',
+      address_city: appt.address_city || '',
+      address_state: appt.address_state || '',
+      address_zip: appt.address_zip || '',
       renovation_items: Array.isArray(appt.renovation_items) ? appt.renovation_items : [],
       other_renovation_text: appt.other_renovation_text || '',
       q_homeowner: appt.q_homeowner ?? null,
@@ -469,7 +475,7 @@ export default function AppointmentDetail() {
       // QA cannot edit recordings — don't send the field.
       if (user?.role === 'qa') delete body.recording_url;
       // Normalize empty strings to null for nullable text fields.
-      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url']
+      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url','address_street','address_city','address_state','address_zip']
         .forEach(k => { if (body[k] === '') body[k] = null; });
       await apiClient.updateLeadInfo(id, body);
       await loadAppt();
@@ -498,6 +504,20 @@ export default function AppointmentDetail() {
       setPaError(err.message || 'Failed to save.');
     } finally {
       setPaSaving(false);
+    }
+  };
+
+  // ── Recording visibility toggle (staff only) ────────────────────────────
+  const saveRecordingVisibility = async (allowed) => {
+    setRecordingToggleSaving(true);
+    try {
+      await apiClient.setRecordingVisibility(id, allowed);
+      await loadAppt();
+      toast.success(allowed ? 'Recording shared with client' : 'Recording hidden from client');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update recording visibility');
+    } finally {
+      setRecordingToggleSaving(false);
     }
   };
 
@@ -553,7 +573,7 @@ export default function AppointmentDetail() {
             Back
           </button>
           <div className="flex flex-wrap items-start gap-3">
-            <h1 className="text-2xl font-semibold text-foreground">{appt.prospect_name || 'Untitled'}</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{leadDisplayName(appt)}</h1>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Badge className={qualColor}>
                 <span className="text-[10px] uppercase tracking-wide opacity-70 mr-1.5">Qualification</span>
@@ -568,7 +588,7 @@ export default function AppointmentDetail() {
                 {(appt.outcome || 'pending').replace(/_/g, ' ')}
               </Badge>
             </div>
-            <ConfirmationBadges confirmations={appt.confirmations || []} />
+            <ConfirmationBadges confirmations={appt.confirmations || []} appointmentAt={appt.appointment_at} />
           </div>
         </div>
 
@@ -589,7 +609,31 @@ export default function AppointmentDetail() {
               <>
                 <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
                 <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
-                <InfoRow label="Address">{appt.address || '—'}</InfoRow>
+
+                {/* Prospect name — may be redacted for client viewers before accept */}
+                <InfoRow label="Prospect">
+                  {appt.prospect_name
+                    ? appt.prospect_name
+                    : <span className="text-muted-foreground italic">Hidden until accepted</span>}
+                </InfoRow>
+
+                {/* Structured address — street may be redacted */}
+                <InfoRow label="Address">
+                  {appt.address_street
+                    ? <span>
+                        {appt.address_street}
+                        {(appt.address_city || appt.address_state || appt.address_zip)
+                          ? `, ${[appt.address_city, appt.address_state, appt.address_zip].filter(Boolean).join(' ')}`
+                          : ''}
+                      </span>
+                    : appt.address_city
+                      ? <span>
+                          <span className="text-muted-foreground italic">Street hidden until accepted — </span>
+                          {[appt.address_city, appt.address_state, appt.address_zip].filter(Boolean).join(' ')}
+                        </span>
+                      : <span>{appt.address || '—'}</span>}
+                </InfoRow>
+
                 <InfoRow label="Renovations">
                   {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
                     ? <span className="flex flex-wrap gap-1">
@@ -616,15 +660,41 @@ export default function AppointmentDetail() {
 
                 <div className="pt-1 border-t border-border" />
 
-                <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
-                <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
-                <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
-                {appt.recording_url && user?.role !== 'qa' && (
+                {/* Phone — may be redacted for client viewers before accept */}
+                <InfoRow label="Phone">
+                  {appt.phone
+                    ? appt.phone
+                    : <span className="text-muted-foreground italic">Hidden until accepted</span>}
+                </InfoRow>
+                {/* Caller and Agent — null for client viewers (API redacts) */}
+                {appt.caller_name !== undefined && appt.caller_name !== null && (
+                  <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
+                )}
+                {appt.agent_id !== undefined && appt.agent_id !== null && (
+                  <InfoRow label="Agent">{`#${appt.agent_id}`}</InfoRow>
+                )}
+
+                {/* Recording link — show only when API provides the URL */}
+                {appt.recording_url && (
                   <InfoRow label="Recording">
                     <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
                        className="text-primary underline-offset-4 hover:underline text-sm">
                       Listen to recording
                     </a>
+                  </InfoRow>
+                )}
+
+                {/* Recording visibility toggle — staff only */}
+                {['admin', 'operations', 'confirmation', 'qa'].includes(user?.role) && (
+                  <InfoRow label="Share recording with client">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={!!appt.recording_allowed_for_client}
+                        disabled={recordingToggleSaving}
+                        onCheckedChange={(checked) => saveRecordingVisibility(checked)}
+                      />
+                      {recordingToggleSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                    </div>
                   </InfoRow>
                 )}
               </>
@@ -636,8 +706,27 @@ export default function AppointmentDetail() {
                   <Input value={leadForm.prospect_name} onChange={e => setLeadField('prospect_name', e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Address</Label>
-                  <Input value={leadForm.address} onChange={e => setLeadField('address', e.target.value)} />
+                  <Label className="text-sm">Street <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={leadForm.address_street}
+                    onChange={e => setLeadField('address_street', e.target.value)}
+                    placeholder="123 Main St"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">City</Label>
+                    <Input value={leadForm.address_city} onChange={e => setLeadField('address_city', e.target.value)} placeholder="City" />
+                  </div>
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">State</Label>
+                    <Input value={leadForm.address_state} onChange={e => setLeadField('address_state', e.target.value)} placeholder="FL" />
+                  </div>
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">Zip</Label>
+                    <Input value={leadForm.address_zip} onChange={e => setLeadField('address_zip', e.target.value)} placeholder="33101" />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Renovation items</Label>
