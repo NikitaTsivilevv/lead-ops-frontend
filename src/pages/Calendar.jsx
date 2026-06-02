@@ -58,6 +58,13 @@ function formatTime(iso) {
     timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true,
   }).format(new Date(iso));
 }
+function formatShortTime(date) {
+  if (!date) return '';
+  const str = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(date);
+  return str.replace(':00', '').replace(' ', '').toLowerCase();
+}
 function getApptDate(iso) {
   if (!iso) return null;
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
@@ -394,7 +401,7 @@ export default function Calendar() {
             </SelectContent>
           </Select>
 
-          {showClientDropdown && clients.length > 0 && (
+          {isAdminOps && showClientDropdown && clients.length > 0 && (
             <Select value={clientId || '_all'} onValueChange={v => setClientId(v === '_all' ? '' : v)}>
               <SelectTrigger className="h-9 w-44 shrink-0">
                 <SelectValue placeholder="Select client" />
@@ -407,19 +414,7 @@ export default function Calendar() {
               </SelectContent>
             </Select>
           )}
-          
-          {isAdminOps && (
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-            >
-              {clients.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-            </select>
-
-          )}
+        
           
 
           <div className="flex rounded-md border border-input overflow-hidden ml-auto">
@@ -512,11 +507,13 @@ export default function Calendar() {
                   const appt = arg.event.extendedProps?.appointment;
                   const summary = confirmationSummary(appt?.confirmations);
                   const dotColor = summary === 'confirmed' ? '#16a34a' : summary === 'failed' ? '#dc2626' : '#ca8a04';
+                  const isMonth = arg.view.type === 'dayGridMonth';
+                  const timeStr = isMonth && arg.event.start ? formatShortTime(arg.event.start) : null;
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', padding: '0 2px' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} title={`Confirmation: ${summary}`} />
                       <span style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {arg.event.title}
+                        {timeStr && <span style={{ opacity: 0.7 }}>{timeStr} </span>}{arg.event.title}
                       </span>
                     </div>
                   );
@@ -606,7 +603,10 @@ export default function Calendar() {
                     <ModalRow label="Homeowner?"><YesNo value={selectedAppt.q_homeowner} /></ModalRow>
                     <ModalRow label="Mortgage current?"><YesNo value={selectedAppt.q_mortgage_current} /></ModalRow>
                     <ModalRow label="Credit score">{selectedAppt.credit_score_band || '—'}</ModalRow>
-                    <ModalRow label="Utility bill">{selectedAppt.utility_bill_raw || '—'}</ModalRow>
+                    <ModalRow label="Avg. utility bill">{selectedAppt.utility_bill_raw || '—'}</ModalRow>
+                    <ModalRow label="Taxes paid (3y)?"><YesNo value={selectedAppt.q_taxes_paid_3y} /></ModalRow>
+                    <ModalRow label="Bankruptcy (3y)?"><YesNo value={selectedAppt.q_bankruptcy_3y} /></ModalRow>
+                    <ModalRow label="Reverse mortgage?"><YesNo value={selectedAppt.q_reverse_mortgage} /></ModalRow>
                   </div>
 
                   {Array.isArray(selectedAppt.confirmations) && selectedAppt.confirmations.length > 0 && (
@@ -616,7 +616,7 @@ export default function Calendar() {
                     </div>
                   )}
 
-                  {selectedAppt.recording_url && (
+                  {selectedAppt.recording_url && ['admin', 'operations', 'confirmation', 'qa'].includes(user?.role) && (
                     <ModalRow label="Recording">
                       <a href={selectedAppt.recording_url} target="_blank" rel="noopener noreferrer"
                          className="text-primary underline-offset-4 hover:underline text-sm">
