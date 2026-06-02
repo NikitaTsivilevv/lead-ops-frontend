@@ -80,7 +80,7 @@ function StatusBadge({ label }) {
 
 function AppointmentCard({ appt, isDragging, onDragStart, onDragEnd }) {
   const navigate = useNavigate();
-  const name = appt.prospect_name || appt.name || `#${appt.id}`;
+  const name = appt.prospect_name || appt.name || 'New appointment';
   const address = [appt.street, appt.city, appt.state].filter(Boolean).join(', ') || appt.address || '—';
   const didDragRef = useRef(false);
 

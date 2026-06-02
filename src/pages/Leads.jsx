@@ -10,6 +10,7 @@ import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import { leadDisplayName } from '@/lib/leadName';
 import DataTable from '@/components/DataTable';
 import Searchbar from '@/components/Searchbar';
 
@@ -163,7 +164,7 @@ export default function Leads() {
       key: 'prospect_name',
       header: 'Prospect',
       sortable: true,
-      cell: (row) => <span className="font-medium text-sm">{row.prospect_name || '—'}</span>,
+      cell: (row) => <span className="font-medium text-sm">{leadDisplayName(row)}</span>,
     },
     {
       key: 'address',
@@ -254,7 +255,7 @@ export default function Leads() {
                       to={`/appointments/${appt.id}`}
                       className="font-medium underline hover:text-amber-700"
                     >
-                      {appt.prospect_name || `Appointment #${appt.id}`}
+                      {leadDisplayName(appt)}
                     </Link>
                     {' — '}
                     <span className="text-amber-800">
@@ -379,7 +380,7 @@ export default function Leads() {
                 mobileCard={(row) => (
                   <>
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm">{row.prospect_name || '—'}</p>
+                      <p className="font-medium text-sm">{leadDisplayName(row)}</p>
                       <StatusBadge value={row.qualification} colorMap={QUAL_COLORS} />
                     </div>
                     <p className="text-xs text-muted-foreground">{formatET(row.appointment_at)}</p>
