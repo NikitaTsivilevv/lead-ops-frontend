@@ -1,15 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
 import DataTable from '@/components/DataTable';
 import Searchbar from '@/components/Searchbar';
+
+const ACTION_REASON_LABELS = {
+  pending_outcome: 'Pending outcome',
+  awaiting_accept: 'Awaiting acceptance',
+  pending_reapproval: 'Needs re-approval',
+};
 
 function formatET(isoString) {
   if (!isoString) return '—';
@@ -84,6 +92,12 @@ export default function Leads() {
   const { user } = useAuth();
   const isClient = user?.role === 'client';
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+
+  const { data: actionNeeded = [] } = useQuery({
+    queryKey: ['action-needed'],
+    queryFn: () => apiClient.getActionNeeded(),
+    enabled: isClient,
+  });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -225,6 +239,33 @@ export default function Leads() {
         <h1 className="text-2xl font-semibold text-foreground">
           {isClient ? 'My appointments' : 'Appointments'}
         </h1>
+
+        {isClient && actionNeeded.length > 0 && (
+          <Alert className="border-amber-400 bg-amber-50 text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <AlertTitle className="text-amber-900">
+              {actionNeeded.length} {actionNeeded.length === 1 ? 'lead needs' : 'leads need'} your action
+            </AlertTitle>
+            <AlertDescription>
+              <ul className="mt-2 space-y-1">
+                {actionNeeded.map((appt) => (
+                  <li key={appt.id} className="text-sm">
+                    <Link
+                      to={`/appointments/${appt.id}`}
+                      className="font-medium underline hover:text-amber-700"
+                    >
+                      {appt.prospect_name || `Appointment #${appt.id}`}
+                    </Link>
+                    {' — '}
+                    <span className="text-amber-800">
+                      {ACTION_REASON_LABELS[appt.action_reason] || appt.action_reason}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end bg-white p-2 rounded-md border border-gray-300 shadow-sm">
           <div className="space-y-1">
