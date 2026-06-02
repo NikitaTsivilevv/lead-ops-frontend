@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
@@ -210,6 +211,9 @@ export default function AppointmentDetail() {
   const [paApproveNote, setPaApproveNote] = useState('');
   const [paSaving, setPaSaving] = useState(false);
   const [paError, setPaError] = useState('');
+
+  // Recording visibility toggle state (staff only)
+  const [recordingToggleSaving, setRecordingToggleSaving] = useState(false);
 
   const [clientOptions, setClientOptions] = useState([]);
   useEffect(() => {
@@ -442,7 +446,10 @@ export default function AppointmentDetail() {
   const startEditLead = () => {
     setLeadForm({
       prospect_name: appt.prospect_name || '',
-      address: appt.address || '',
+      address_street: appt.address_street || '',
+      address_city: appt.address_city || '',
+      address_state: appt.address_state || '',
+      address_zip: appt.address_zip || '',
       renovation_items: Array.isArray(appt.renovation_items) ? appt.renovation_items : [],
       other_renovation_text: appt.other_renovation_text || '',
       q_homeowner: appt.q_homeowner ?? null,
@@ -469,7 +476,7 @@ export default function AppointmentDetail() {
       // QA cannot edit recordings — don't send the field.
       if (user?.role === 'qa') delete body.recording_url;
       // Normalize empty strings to null for nullable text fields.
-      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url']
+      ['other_renovation_text','credit_score_band','credit_score_text','utility_bill_raw','phone','caller_name','caller_notes','recording_url','address_street','address_city','address_state','address_zip']
         .forEach(k => { if (body[k] === '') body[k] = null; });
       await apiClient.updateLeadInfo(id, body);
       await loadAppt();
@@ -498,6 +505,20 @@ export default function AppointmentDetail() {
       setPaError(err.message || 'Failed to save.');
     } finally {
       setPaSaving(false);
+    }
+  };
+
+  // ── Recording visibility toggle (staff only) ────────────────────────────
+  const saveRecordingVisibility = async (allowed) => {
+    setRecordingToggleSaving(true);
+    try {
+      await apiClient.setRecordingVisibility(id, allowed);
+      await loadAppt();
+      toast.success(allowed ? 'Recording shared with client' : 'Recording hidden from client');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update recording visibility');
+    } finally {
+      setRecordingToggleSaving(false);
     }
   };
 
@@ -589,7 +610,31 @@ export default function AppointmentDetail() {
               <>
                 <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
                 <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
-                <InfoRow label="Address">{appt.address || '—'}</InfoRow>
+
+                {/* Prospect name — may be redacted for client viewers before accept */}
+                <InfoRow label="Prospect">
+                  {appt.prospect_name
+                    ? appt.prospect_name
+                    : <span className="text-muted-foreground italic">Hidden until accepted</span>}
+                </InfoRow>
+
+                {/* Structured address — street may be redacted */}
+                <InfoRow label="Address">
+                  {appt.address_street
+                    ? <span>
+                        {appt.address_street}
+                        {(appt.address_city || appt.address_state || appt.address_zip)
+                          ? `, ${[appt.address_city, appt.address_state, appt.address_zip].filter(Boolean).join(' ')}`
+                          : ''}
+                      </span>
+                    : appt.address_city
+                      ? <span>
+                          <span className="text-muted-foreground italic">Street hidden until accepted — </span>
+                          {[appt.address_city, appt.address_state, appt.address_zip].filter(Boolean).join(' ')}
+                        </span>
+                      : <span>{appt.address || '—'}</span>}
+                </InfoRow>
+
                 <InfoRow label="Renovations">
                   {Array.isArray(appt.renovation_items) && appt.renovation_items.length > 0
                     ? <span className="flex flex-wrap gap-1">
@@ -616,15 +661,41 @@ export default function AppointmentDetail() {
 
                 <div className="pt-1 border-t border-border" />
 
-                <InfoRow label="Phone">{appt.phone || '—'}</InfoRow>
-                <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
-                <InfoRow label="Agent">{appt.agent_id ? `#${appt.agent_id}` : '—'}</InfoRow>
-                {appt.recording_url && user?.role !== 'qa' && (
+                {/* Phone — may be redacted for client viewers before accept */}
+                <InfoRow label="Phone">
+                  {appt.phone
+                    ? appt.phone
+                    : <span className="text-muted-foreground italic">Hidden until accepted</span>}
+                </InfoRow>
+                {/* Caller and Agent — null for client viewers (API redacts) */}
+                {appt.caller_name !== undefined && appt.caller_name !== null && (
+                  <InfoRow label="Caller">{appt.caller_name || '—'}</InfoRow>
+                )}
+                {appt.agent_id !== undefined && appt.agent_id !== null && (
+                  <InfoRow label="Agent">{`#${appt.agent_id}`}</InfoRow>
+                )}
+
+                {/* Recording link — show only when API provides the URL */}
+                {appt.recording_url && (
                   <InfoRow label="Recording">
                     <a href={appt.recording_url} target="_blank" rel="noopener noreferrer"
                        className="text-primary underline-offset-4 hover:underline text-sm">
                       Listen to recording
                     </a>
+                  </InfoRow>
+                )}
+
+                {/* Recording visibility toggle — staff only */}
+                {['admin', 'operations', 'confirmation', 'qa'].includes(user?.role) && (
+                  <InfoRow label="Share recording with client">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={!!appt.recording_allowed_for_client}
+                        disabled={recordingToggleSaving}
+                        onCheckedChange={(checked) => saveRecordingVisibility(checked)}
+                      />
+                      {recordingToggleSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                    </div>
                   </InfoRow>
                 )}
               </>
@@ -636,8 +707,27 @@ export default function AppointmentDetail() {
                   <Input value={leadForm.prospect_name} onChange={e => setLeadField('prospect_name', e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Address</Label>
-                  <Input value={leadForm.address} onChange={e => setLeadField('address', e.target.value)} />
+                  <Label className="text-sm">Street <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={leadForm.address_street}
+                    onChange={e => setLeadField('address_street', e.target.value)}
+                    placeholder="123 Main St"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">City</Label>
+                    <Input value={leadForm.address_city} onChange={e => setLeadField('address_city', e.target.value)} placeholder="City" />
+                  </div>
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">State</Label>
+                    <Input value={leadForm.address_state} onChange={e => setLeadField('address_state', e.target.value)} placeholder="FL" />
+                  </div>
+                  <div className="space-y-1 col-span-1">
+                    <Label className="text-sm">Zip</Label>
+                    <Input value={leadForm.address_zip} onChange={e => setLeadField('address_zip', e.target.value)} placeholder="33101" />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Renovation items</Label>
