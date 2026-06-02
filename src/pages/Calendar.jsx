@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
+import { leadDisplayName } from '@/lib/leadName';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -120,7 +121,7 @@ function apptToEvent(a) {
   else if (a.qualification === 'qualified') color = '#3b82f6';
   return {
     id: String(a.id),
-    title: a.prospect_name || 'Appointment',
+    title: leadDisplayName(a),
     start: a.appointment_at,
     backgroundColor: color,
     borderColor: color,
@@ -550,7 +551,7 @@ export default function Calendar() {
           <Dialog open={!!selectedAppt} onOpenChange={(open) => { if (!open) { setSelectedAppt(null); setModalLoading(false); } }}>
             <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{selectedAppt?.prospect_name || 'Appointment'}</DialogTitle>
+                <DialogTitle>{leadDisplayName(selectedAppt)}</DialogTitle>
                 <DialogDescription>{selectedAppt ? formatFullDateTime(selectedAppt.appointment_at) : ''}</DialogDescription>
               </DialogHeader>
               {modalLoading && (
@@ -684,7 +685,7 @@ export default function Calendar() {
                             className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer"
                           >
                             <span className="text-sm text-muted-foreground w-16 shrink-0">{formatTime(a.appointment_at)}</span>
-                            <span className="text-sm font-medium flex-1 min-w-[120px]">{a.prospect_name || '—'}</span>
+                            <span className="text-sm font-medium flex-1 min-w-[120px]">{leadDisplayName(a)}</span>
                             <div className="flex flex-wrap gap-1.5">
                               <Badge className={QUAL_BADGE[a.qualification] || 'bg-muted text-muted-foreground'}>{a.qualification || 'pending'}</Badge>
                               <Badge className={clientDecisionColor(a.client_decision)}>{clientDecisionLabel(a.client_decision)}</Badge>
