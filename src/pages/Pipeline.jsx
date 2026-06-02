@@ -5,7 +5,7 @@ import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const TZ = 'America/New_York';
@@ -236,6 +236,11 @@ export default function Pipeline() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
+    const id = setInterval(() => fetchData(true), 5 * 60_000);
+    return () => clearInterval(id);
+  }, [fetchData]);
+
+  useEffect(() => {
     if (loading) return;
     const el = boardRef.current;
     if (!el) return;
@@ -292,9 +297,11 @@ export default function Pipeline() {
               <label className="text-sm text-muted-foreground shrink-0">To</label>
               <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-36 h-8 text-sm" />
             </div>
-            <Button size="sm" variant="outline" onClick={() => fetchData(true)} disabled={refreshing} className="gap-1.5">
-              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Refresh
+            <Button size="sm" variant="outline" onClick={() => {
+              setFrom(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+              setTo(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
+            }}>
+              Reset
             </Button>
           </div>
         </div>

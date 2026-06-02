@@ -97,4 +97,18 @@ export const apiClient = {
   listClients: () => request('/api/clients'),
   createClient: (body) => request('/api/clients', { method: 'POST', body }),
   updateClient: (id, body) => request(`/api/clients/${id}`, { method: 'PATCH', body }),
+  // unavailability blocks
+  listUnavailability: ({ client_id, from, to }) => {
+    const qs = new URLSearchParams(
+      Object.entries({ client_id, from, to })
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    ).toString();
+    return request(`/api/unavailability?${qs}`);
+  },
+  createUnavailability: (body) =>
+    request('/api/unavailability', { method: 'POST', body }),
+  updateUnavailability: (id, body) =>
+    request(`/api/unavailability/${id}`, { method: 'PUT', body }),
+  deleteUnavailability: (id) =>
+    request(`/api/unavailability/${id}`, { method: 'DELETE' }),
 };
