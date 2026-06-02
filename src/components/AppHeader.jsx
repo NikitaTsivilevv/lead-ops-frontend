@@ -4,15 +4,7 @@ import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu } from 'lucide-react';
-
-const ROLE_LABELS = {
-  admin: 'Admin',
-  operations: 'Operations',
-  confirmation: 'Confirmation',
-  client: 'Client',
-  caller: 'Caller',
-  qa: 'QA',
-};
+import { roleLabel } from '@/lib/roles';
 
 function NavLinks({ user, onClick }) {
   const linkClass = ({ isActive }) =>
@@ -76,7 +68,7 @@ export default function AppHeader() {
           <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
             <span className="hidden lg:inline truncate max-w-[180px]">{user.email}</span>
             <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium shrink-0">
-              {ROLE_LABELS[user.role] || user.role}
+              {roleLabel(user.role)}
             </span>
           </div>
           <Button
@@ -101,7 +93,7 @@ export default function AppHeader() {
               <div className="p-4 border-b shrink-0">
                 <div className="text-sm font-medium truncate">{user.email}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {ROLE_LABELS[user.role] || user.role}
+                  {roleLabel(user.role)}
                 </div>
               </div>
               <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">

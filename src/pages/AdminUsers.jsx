@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { roleLabel } from '@/lib/roles';
 
 const ROLES = ['admin', 'operations', 'confirmation', 'client', 'caller', 'qa'];
 const NEEDS_CLIENT = (role) => role === 'client';
@@ -81,7 +82,7 @@ export default function AdminUsers() {
             <div className="space-y-1"><p className="text-xs text-muted-foreground font-medium">Role</p>
               <Select value={invite.role} onValueChange={(v) => setInvite((s) => ({ ...s, role: v }))}>
                 <SelectTrigger className="h-9 sm:w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select></div>
+                <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>)}</SelectContent></Select></div>
             {(invite.role === 'client' || invite.role === 'caller') && (
               <div className="space-y-1"><p className="text-xs text-muted-foreground font-medium">Client</p>
                 <Select value={invite.client_id} onValueChange={(v) => setInvite((s) => ({ ...s, client_id: v }))}>
@@ -107,7 +108,7 @@ export default function AdminUsers() {
                       <td className="py-2 pr-3">
                         <Select value={u.role} onValueChange={(v) => changeRole(u, v)}>
                           <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-                          <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select></td>
+                          <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>)}</SelectContent></Select></td>
                       <td className="py-2 pr-3"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted">{u.status}</span></td>
                       <td className="py-2 pr-3 text-muted-foreground">{u.last_login_at ? new Date(u.last_login_at).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '—'}</td>
                       <td className="py-2 pr-3 flex gap-2">
