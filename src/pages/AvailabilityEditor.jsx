@@ -136,10 +136,23 @@ export default function AvailabilityEditor() {
 
   // ── ICS shared batch helper ────────────────────────────────────────────────
   const importICSEvents = async (events, filename = 'calendar.ics') => {
+    // Keep only events that start from today up to 3 months ahead
+    const now         = new Date();
+    const cutoff      = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 3);
+    const nowIso     = now.toISOString();
+    const cutoffIso  = cutoff.toISOString();
+
+    const filtered = events.filter(e => e.start_at >= nowIso && e.start_at <= cutoffIso);
+    if (filtered.length === 0) {
+      toast.info('No upcoming events found in this calendar (next 3 months).');
+      return;
+    }
+
     const result = await apiClient.importICSBatch({
       client_id: Number(clientId),
       filename,
-      events: events.map(evt => ({
+      events: filtered.map(evt => ({
         uid:      evt.uid ?? null,
         title:    evt.title,
         start_at: evt.start_at,
@@ -151,13 +164,8 @@ export default function AvailabilityEditor() {
     const parts = [];
     if (inserted) parts.push(`${inserted} added`);
     if (updated)  parts.push(`${updated} updated`);
-    toast.success(`Calendar imported: ${parts.join(', ') || 'no changes'}.`);
-
-    // Reload with the full span of imported events so all blocks are visible
-    const allDates = events.flatMap(e => [e.start_at, e.end_at]);
-    const from = allDates.reduce((a, b) => a < b ? a : b).slice(0, 10);
-    const to   = allDates.reduce((a, b) => a > b ? a : b).slice(0, 10);
-    await loadUnavailability(clientId, { from, to });
+    toast.success(`Imported: ${parts.join(', ') || 'no changes'} (from ${events.length} total events).`);
+    await loadUnavailability(clientId);
   };
 
   // ── ICS import ─────────────────────────────────────────────────────────────
@@ -169,9 +177,11 @@ export default function AvailabilityEditor() {
       const events = parseICSEvents(ev.target.result);
       if (events.length === 0) { toast.info('No events found in file.'); return; }
       setIcsImporting(true);
-      toast.info(`Importing ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
       try {
         await importICSEvents(events, file.name);
+      } catch (err) {
+        toast.error(err.message || 'Import failed.');
       } finally {
         setIcsImporting(false);
       }
@@ -200,7 +210,7 @@ export default function AvailabilityEditor() {
       }
       const events = parseICSEvents(text);
       if (events.length === 0) { toast.info('No events found in that calendar feed.'); return; }
-      toast.info(`Importing ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
       await importICSEvents(events);
     } catch (err) {
       toast.error(err.message || 'Failed to fetch calendar URL.');
