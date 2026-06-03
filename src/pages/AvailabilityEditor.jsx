@@ -63,6 +63,7 @@ export default function AvailabilityEditor() {
   // ── unavailability tab state ───────────────────────────────────────────────
   const [unavailBlocks, setUnavailBlocks] = useState([]);
   const [unavailLoading, setUnavailLoading] = useState(false);
+  const [icsImporting, setIcsImporting] = useState(false);
   const icsBlockRef = useRef(null);
 
   const loadUnavailability = useCallback(async (cid) => {
@@ -134,25 +135,28 @@ export default function AvailabilityEditor() {
     reader.onload = async (ev) => {
       const events = parseICSEvents(ev.target.result);
       if (events.length === 0) { toast.info('No events found in file.'); return; }
-      // Route every ICS event through the MAIN unavailability endpoint — the same
-      // POST /api/unavailability that manual and quick-blocks use — so there is a
-      // single source of unavailability rather than a separate import-ics store.
-      const results = await Promise.allSettled(
-        events.map(evt => apiClient.createUnavailability({
-          client_id: Number(clientId),
-          title:     evt.title,
-          start_at:  evt.start_at,
-          end_at:    evt.end_at,
-          all_day:   evt.all_day,
-          uid:       evt.uid,   // lets the backend dedupe re-imports by UID
-          source:    'ics',
-        }))
-      );
-      const created = results.filter(r => r.status === 'fulfilled').length;
-      const failed  = results.length - created;
-      if (created) toast.success(`Imported ${created} block${created === 1 ? '' : 's'}.`);
-      if (failed)  toast.error(`${failed} block${failed === 1 ? '' : 's'} failed to import.`);
-      await loadUnavailability(clientId);
+      setIcsImporting(true);
+      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      try {
+        const results = await Promise.allSettled(
+          events.map(evt => apiClient.createUnavailability({
+            client_id: Number(clientId),
+            title:     evt.title,
+            start_at:  evt.start_at,
+            end_at:    evt.end_at,
+            all_day:   evt.all_day,
+            uid:       evt.uid,
+            source:    'ics',
+          }))
+        );
+        const created = results.filter(r => r.status === 'fulfilled').length;
+        const failed  = results.length - created;
+        if (created) toast.success(`Imported ${created} unavailability block${created === 1 ? '' : 's'}.`);
+        if (failed)  toast.error(`${failed} block${failed === 1 ? '' : 's'} failed to import.`);
+        await loadUnavailability(clientId);
+      } finally {
+        setIcsImporting(false);
+      }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -214,8 +218,6 @@ export default function AvailabilityEditor() {
   return (
     <div className={`min-h-screen bg-background py-8 px-4 ${activeTab === 'schedule' ? 'pb-28' : 'pb-10'}`}>
       <div className="max-w-[900px] mx-auto space-y-6">
-
-        {/* Top bar */}
         <div>
           <button
             onClick={() => navigate('/calendar')}
@@ -271,6 +273,7 @@ export default function AvailabilityEditor() {
             onQuickBlock={quickBlock}
             icsRef={icsBlockRef}
             onICSImport={handleICSBlockImport}
+            icsImporting={icsImporting}
           />
         )}
 

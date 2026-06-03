@@ -3,18 +3,16 @@ function parseICSDateTime(keyStr, valStr) {
   const isDateOnly = keyStr.includes('VALUE=DATE') || /^\d{8}$/.test(v);
 
   if (isDateOnly) {
-    const y  = parseInt(v.slice(0, 4), 10);
-    const mo = parseInt(v.slice(4, 6), 10) - 1;
-    const d  = parseInt(v.slice(6, 8), 10);
-    return { iso: new Date(y, mo, d).toISOString(), allDay: true };
+    const y  = v.slice(0, 4);
+    const mo = v.slice(4, 6);
+    const d  = v.slice(6, 8);
+    return { iso: `${y}-${mo}-${d}T00:00:00Z`, allDay: true };
   }
 
   const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
   if (m) {
-    const iso = m[7] === 'Z'
-      ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`
-      : `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
-    return { iso, allDay: false };
+    // Always emit with Z — treat floating times as-is (no-shift policy)
+    return { iso: `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`, allDay: false };
   }
   return null;
 }
@@ -45,9 +43,14 @@ export function parseICSEvents(text) {
       if (cur.endRaw) {
         const endParsed = parseICSDateTime(cur.endRaw.key, cur.endRaw.val);
         if (endParsed) {
-          let endDate = new Date(endParsed.iso);
-          if (endParsed.allDay) endDate = new Date(endDate.getTime() - 1); // exclusive end
-          endIso = endDate.toISOString();
+          if (endParsed.allDay) {
+            // ICS all-day DTEND is exclusive midnight — store as 23:59:59 of the previous day
+            const d = new Date(endParsed.iso);
+            d.setUTCSeconds(d.getUTCSeconds() - 1);
+            endIso = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+          } else {
+            endIso = endParsed.iso;
+          }
           allDay = allDay && endParsed.allDay;
         }
       }

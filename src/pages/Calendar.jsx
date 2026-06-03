@@ -741,7 +741,7 @@ export default function Calendar() {
                         {daySlots.length === 0 ? (
                           <span className="text-xs text-muted-foreground">Closed</span>
                         ) : daySlots.every(s => Number(s.capacity) === 0) ? (
-                          <Badge className="bg-red-100 text-red-700">Unavailable</Badge>
+                          <Badge className="bg-red-200 text-red-700">Unavailable</Badge>
                         ) : daySlots.map((s, i) => (
                           <Badge key={i} className={s.source === 'specific' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}>
                             {s.start_time}–{s.end_time} · cap {s.capacity}
@@ -750,7 +750,7 @@ export default function Calendar() {
                         {(data.unavailability || [])
                           .filter(b => day >= b.start_at.slice(0, 10) && day <= b.end_at.slice(0, 10))
                           .map(b => (
-                            <Badge key={`u-${b.id}`} className="bg-red-100 text-red-700 border border-red-200">
+                            <Badge key={`u-${b.id}`} className="bg-red-200 text-red-700 border border-red-200">
                               {b.title}
                             </Badge>
                           ))

@@ -22,7 +22,7 @@ function fcDateToISO(date) {
 export default function UnavailabilityTab({
   clientId, blocks, loading,
   onBlockCreated, onBlockUpdated, onBlockDeleted,
-  onQuickBlock, icsRef, onICSImport,
+  onQuickBlock, icsRef, onICSImport, icsImporting,
 }) {
   const [pendingSelect, setPendingSelect] = useState(null);
   const [pendingTitle, setPendingTitle]   = useState('Unavailable');
@@ -138,8 +138,12 @@ export default function UnavailabilityTab({
             </Button>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
-                onClick={() => icsRef.current?.click()}>
-                <Upload className="w-3.5 h-3.5" />Import .ics
+                onClick={() => icsRef.current?.click()}
+                disabled={icsImporting}>
+                {icsImporting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Upload className="w-3.5 h-3.5" />}
+                {icsImporting ? 'Importing…' : 'Import .ics'}
               </Button>
               <input ref={icsRef} type="file" accept=".ics,text/calendar"
                 className="hidden" onChange={onICSImport} />
@@ -201,6 +205,11 @@ export default function UnavailabilityTab({
                 slotMinTime="06:00:00"
                 slotMaxTime="22:00:00"
                 eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: true }}
+                eventContent={(arg) => (
+                  <div style={{ fontSize: '0.72rem', padding: '0 3px', color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    {arg.timeText}
+                  </div>
+                )}
                 dayMaxEvents={true}
               />
             </div>
