@@ -63,19 +63,27 @@ export default function AvailabilityEditor() {
   // ── unavailability tab state ───────────────────────────────────────────────
   const [unavailBlocks, setUnavailBlocks] = useState([]);
   const [unavailLoading, setUnavailLoading] = useState(false);
+  const [icsImporting, setIcsImporting] = useState(false);
+  const [urlImporting, setUrlImporting] = useState(false);
   const icsBlockRef = useRef(null);
 
-  const loadUnavailability = useCallback(async (cid) => {
+  const loadUnavailability = useCallback(async (cid, range = null) => {
     setUnavailLoading(true);
     try {
-      const from = new Date();
-      from.setDate(from.getDate() - 7);
-      const to = new Date();
-      to.setMonth(to.getMonth() + 3);
+      let from, to;
+      if (range) {
+        from = range.from;
+        to   = range.to;
+      } else {
+        const f = new Date(); f.setDate(f.getDate() - 7);
+        const t = new Date(); t.setMonth(t.getMonth() + 3);
+        from = f.toISOString().slice(0, 10);
+        to   = t.toISOString().slice(0, 10);
+      }
       const res = await apiClient.listUnavailability({
         client_id: isAdminOps ? cid : undefined,
-        from: from.toISOString().slice(0, 10),
-        to:   to.toISOString().slice(0, 10),
+        from,
+        to,
       });
       setUnavailBlocks(res.unavailability || []);
     } catch {
@@ -126,6 +134,40 @@ export default function AvailabilityEditor() {
     }
   };
 
+  // ── ICS shared batch helper ────────────────────────────────────────────────
+  const importICSEvents = async (events, filename = 'calendar.ics') => {
+    // Keep only events that start from today up to 3 months ahead
+    const now         = new Date();
+    const cutoff      = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 3);
+    const nowIso     = now.toISOString();
+    const cutoffIso  = cutoff.toISOString();
+
+    const filtered = events.filter(e => e.start_at >= nowIso && e.start_at <= cutoffIso);
+    if (filtered.length === 0) {
+      toast.info('No upcoming events found in this calendar (next 3 months).');
+      return;
+    }
+
+    const result = await apiClient.importICSBatch({
+      client_id: Number(clientId),
+      filename,
+      events: filtered.map(evt => ({
+        uid:      evt.uid ?? null,
+        title:    evt.title,
+        start_at: evt.start_at,
+        end_at:   evt.end_at,
+        all_day:  evt.all_day,
+      })),
+    });
+    const { inserted = 0, updated = 0 } = result;
+    const parts = [];
+    if (inserted) parts.push(`${inserted} added`);
+    if (updated)  parts.push(`${updated} updated`);
+    toast.success(`Imported: ${parts.join(', ') || 'no changes'} (from ${events.length} total events).`);
+    await loadUnavailability(clientId);
+  };
+
   // ── ICS import ─────────────────────────────────────────────────────────────
   const handleICSBlockImport = (e) => {
     const file = e.target.files?.[0];
@@ -134,28 +176,47 @@ export default function AvailabilityEditor() {
     reader.onload = async (ev) => {
       const events = parseICSEvents(ev.target.result);
       if (events.length === 0) { toast.info('No events found in file.'); return; }
-      // Route every ICS event through the MAIN unavailability endpoint — the same
-      // POST /api/unavailability that manual and quick-blocks use — so there is a
-      // single source of unavailability rather than a separate import-ics store.
-      const results = await Promise.allSettled(
-        events.map(evt => apiClient.createUnavailability({
-          client_id: Number(clientId),
-          title:     evt.title,
-          start_at:  evt.start_at,
-          end_at:    evt.end_at,
-          all_day:   evt.all_day,
-          uid:       evt.uid,   // lets the backend dedupe re-imports by UID
-          source:    'ics',
-        }))
-      );
-      const created = results.filter(r => r.status === 'fulfilled').length;
-      const failed  = results.length - created;
-      if (created) toast.success(`Imported ${created} block${created === 1 ? '' : 's'}.`);
-      if (failed)  toast.error(`${failed} block${failed === 1 ? '' : 's'} failed to import.`);
-      await loadUnavailability(clientId);
+      setIcsImporting(true);
+      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      try {
+        await importICSEvents(events, file.name);
+      } catch (err) {
+        toast.error(err.message || 'Import failed.');
+      } finally {
+        setIcsImporting(false);
+      }
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleICSUrlImport = async (rawUrl) => {
+    const url = rawUrl.replace(/^webcal:\/\//i, 'https://');
+    const fetchUrl = import.meta.env.DEV
+      ? `/ics-proxy?url=${encodeURIComponent(url)}`
+      : url;
+    setUrlImporting(true);
+    try {
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error(`Failed to fetch calendar (${res.status})`);
+      const text = await res.text();
+      if (!text.includes('BEGIN:VCALENDAR')) {
+        const isHtml = text.trimStart().startsWith('<');
+        throw new Error(
+          isHtml
+            ? 'That URL returned a web page, not a calendar feed. You need the .ics export URL — not a share link or "create event" link.'
+            : 'That URL did not return a valid calendar. Make sure it ends in .ics or is a direct iCal feed link.'
+        );
+      }
+      const events = parseICSEvents(text);
+      if (events.length === 0) { toast.info('No events found in that calendar feed.'); return; }
+      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      await importICSEvents(events);
+    } catch (err) {
+      toast.error(err.message || 'Failed to fetch calendar URL.');
+    } finally {
+      setUrlImporting(false);
+    }
   };
 
   // ── schedule tab helpers ───────────────────────────────────────────────────
@@ -214,8 +275,6 @@ export default function AvailabilityEditor() {
   return (
     <div className={`min-h-screen bg-background py-8 px-4 ${activeTab === 'schedule' ? 'pb-28' : 'pb-10'}`}>
       <div className="max-w-[900px] mx-auto space-y-6">
-
-        {/* Top bar */}
         <div>
           <button
             onClick={() => navigate('/calendar')}
@@ -271,6 +330,9 @@ export default function AvailabilityEditor() {
             onQuickBlock={quickBlock}
             icsRef={icsBlockRef}
             onICSImport={handleICSBlockImport}
+            icsImporting={icsImporting}
+            onUrlImport={handleICSUrlImport}
+            urlImporting={urlImporting}
           />
         )}
 

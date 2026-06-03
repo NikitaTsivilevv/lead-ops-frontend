@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 export default function UnavailBlockRow({ block, onEdit, onDelete }) {
   const fmt = (iso, allDay) =>
     new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
       month: 'short', day: 'numeric', year: 'numeric',
       ...(allDay ? {} : { hour: 'numeric', minute: '2-digit', hour12: true }),
     }).format(new Date(iso));

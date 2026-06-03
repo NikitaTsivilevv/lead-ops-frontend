@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Ban, Upload } from 'lucide-react';
+import { Loader2, Ban, Upload, Link } from 'lucide-react';
 import { toast } from 'sonner';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -14,12 +14,20 @@ import interactionPlugin from '@fullcalendar/interaction';
 import UnavailBlockRow from './UnavailBlockRow';
 import BlockEditDialog from './BlockEditDialog';
 
+function fcDateToISO(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}Z`;
+}
+
 export default function UnavailabilityTab({
   clientId, blocks, loading,
   onBlockCreated, onBlockUpdated, onBlockDeleted,
-  onQuickBlock, icsRef, onICSImport,
+  onQuickBlock, icsRef, onICSImport, icsImporting,
+  onUrlImport, urlImporting,
 }) {
   const [pendingSelect, setPendingSelect] = useState(null);
+  const [urlDialogOpen, setUrlDialogOpen] = useState(false);
+  const [calendarUrl, setCalendarUrl] = useState('');
   const [pendingTitle, setPendingTitle]   = useState('Unavailable');
   const [pendingAllDay, setPendingAllDay] = useState(false);
   const [pendingFromTime, setPendingFromTime] = useState('09:00');
@@ -44,8 +52,8 @@ export default function UnavailabilityTab({
     setPendingTitle('Unavailable');
     setPendingAllDay(allDay);
     const pad = n => String(n).padStart(2, '0');
-    setPendingFromTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
-    setPendingToTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
+    setPendingFromTime(`${pad(start.getUTCHours())}:${pad(start.getUTCMinutes())}`);
+    setPendingToTime(`${pad(end.getUTCHours())}:${pad(end.getUTCMinutes())}`);
   };
 
   const handleConfirmCreate = async () => {
@@ -53,16 +61,15 @@ export default function UnavailabilityTab({
     setSavingNew(true);
     try {
       let startAt, endAt;
+      const s = pendingSelect.start;
+      const pad = n => String(n).padStart(2, '0');
+      const date = `${s.getUTCFullYear()}-${pad(s.getUTCMonth() + 1)}-${pad(s.getUTCDate())}`;
       if (pendingAllDay) {
-        const s = pendingSelect.start;
-        startAt = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0).toISOString();
-        endAt   = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 23, 59, 59).toISOString();
+        startAt = `${date}T00:00:00Z`;
+        endAt   = `${date}T23:59:59Z`;
       } else {
-        const [fh, fm] = pendingFromTime.split(':').map(Number);
-        const [th, tm] = pendingToTime.split(':').map(Number);
-        const s = pendingSelect.start;
-        startAt = new Date(s.getFullYear(), s.getMonth(), s.getDate(), fh, fm).toISOString();
-        endAt   = new Date(s.getFullYear(), s.getMonth(), s.getDate(), th, tm).toISOString();
+        startAt = `${date}T${pendingFromTime}:00Z`;
+        endAt   = `${date}T${pendingToTime}:00Z`;
       }
       const res = await apiClient.createUnavailability({
         client_id: Number(clientId),
@@ -84,8 +91,8 @@ export default function UnavailabilityTab({
 
   const handleEventDrop = async ({ event, revert }) => {
     const updates = {
-      start_at: event.start.toISOString(),
-      end_at:   (event.end ?? event.start).toISOString(),
+      start_at: fcDateToISO(event.start),
+      end_at:   fcDateToISO(event.end ?? event.start),
       all_day:  event.allDay,
     };
     try {
@@ -98,7 +105,7 @@ export default function UnavailabilityTab({
   };
 
   const handleEventResize = async ({ event, revert }) => {
-    const updates = { start_at: event.start.toISOString(), end_at: event.end.toISOString() };
+    const updates = { start_at: fcDateToISO(event.start), end_at: fcDateToISO(event.end) };
     try {
       await apiClient.updateUnavailability(Number(event.id), updates);
       onBlockUpdated(Number(event.id), updates);
@@ -134,8 +141,20 @@ export default function UnavailabilityTab({
             </Button>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
-                onClick={() => icsRef.current?.click()}>
-                <Upload className="w-3.5 h-3.5" />Import .ics
+                onClick={() => setUrlDialogOpen(true)}
+                disabled={urlImporting || icsImporting}>
+                {urlImporting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Link className="w-3.5 h-3.5" />}
+                {urlImporting ? 'Importing…' : 'Import from URL'}
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
+                onClick={() => icsRef.current?.click()}
+                disabled={icsImporting || urlImporting}>
+                {icsImporting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Upload className="w-3.5 h-3.5" />}
+                {icsImporting ? 'Importing…' : 'Import .ics'}
               </Button>
               <input ref={icsRef} type="file" accept=".ics,text/calendar"
                 className="hidden" onChange={onICSImport} />
@@ -178,7 +197,7 @@ export default function UnavailabilityTab({
               <FullCalendar
                 plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
                 initialView="timeGridWeek"
-                timeZone="local"
+                timeZone="UTC"
                 headerToolbar={{
                   left:   'prev,next today',
                   center: 'title',
@@ -197,6 +216,11 @@ export default function UnavailabilityTab({
                 slotMinTime="06:00:00"
                 slotMaxTime="22:00:00"
                 eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: true }}
+                eventContent={(arg) => (
+                  <div style={{ fontSize: '0.72rem', padding: '0 3px', color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    {arg.timeText}
+                  </div>
+                )}
                 dayMaxEvents={true}
               />
             </div>
@@ -286,10 +310,58 @@ export default function UnavailabilityTab({
               </div>
             )}
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setPendingSelect(null)}>Cancel</Button>
               <Button onClick={handleConfirmCreate} disabled={savingNew} className="flex-1">
                 {savingNew ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Block time'}
               </Button>
-              <Button variant="outline" onClick={() => setPendingSelect(null)}>Cancel</Button>
+              
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* URL import dialog */}
+      <Dialog open={urlDialogOpen} onOpenChange={(open) => { if (!open) { setUrlDialogOpen(false); setCalendarUrl(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import calendar from URL</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5 rounded-md bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Use an iCal export URL, not a share/create link.</p>
+              <p>Google Calendar: open calendar settings → <em>Integrate calendar</em> → copy the <strong>Secret address in iCal format</strong>.</p>
+              <p>Outlook: go to <em>Publish calendar</em> and copy the ICS link.</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Calendar URL (.ics / webcal)</Label>
+              <Input
+                value={calendarUrl}
+                onChange={e => setCalendarUrl(e.target.value)}
+                placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
+                className="h-9 text-sm"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && calendarUrl.trim()) {
+                    onUrlImport(calendarUrl.trim());
+                    setUrlDialogOpen(false);
+                    setCalendarUrl('');
+                  }
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setUrlDialogOpen(false); setCalendarUrl(''); }}>Cancel</Button>
+              <Button
+                className="flex-1"
+                disabled={!calendarUrl.trim() || urlImporting}
+                onClick={() => {
+                  onUrlImport(calendarUrl.trim());
+                  setUrlDialogOpen(false);
+                  setCalendarUrl('');
+                }}
+              >
+                Import
+              </Button>
             </div>
           </div>
         </DialogContent>

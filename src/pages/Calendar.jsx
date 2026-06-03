@@ -23,6 +23,15 @@ import { Badge, QUAL_BADGE, SHOW_STATUS_BADGE, SALE_STATUS_BADGE, clientDecision
 
 const TZ = 'America/New_York';
 
+function etDecimalHour(iso) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ, hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(new Date(iso));
+  const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10) % 24;
+  const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0', 10);
+  return h + m / 60;
+}
+
 function toYMD(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -263,21 +272,30 @@ export default function Calendar() {
   const slotsByDayRef = useRef(slotsByDay);
   slotsByDayRef.current = slotsByDay;
 
-  // Build a Set of YYYY-MM-DD dates covered by all-day unavailability blocks
-  const unavailAllDayDates = new Set();
+  // Build per-day unavailability bars: each bar is { topPct, heightPct } mapped to 0-24h scale
+  const unavailBarsByDay = {};
   for (const b of (data.unavailability || [])) {
-    if (!b.all_day) continue;
     let cur = b.start_at.slice(0, 10);
-    const end = b.end_at.slice(0, 10);
+    const endDate = b.end_at.slice(0, 10);
     let safety = 0;
-    while (cur <= end && safety < 366) {
-      unavailAllDayDates.add(cur);
+    while (cur <= endDate && safety < 366) {
+      if (!unavailBarsByDay[cur]) unavailBarsByDay[cur] = { allDay: false, bars: [] };
+      if (b.all_day) {
+        unavailBarsByDay[cur].allDay = true;
+      } else {
+        const startH = etDecimalHour(b.start_at);
+        const endH   = etDecimalHour(b.end_at);
+        unavailBarsByDay[cur].bars.push({
+          topPct:    (startH / 24) * 100,
+          heightPct: Math.max(((endH - startH) / 24) * 100, 2),
+        });
+      }
       cur = addDays(cur, 1);
       safety++;
     }
   }
-  const unavailAllDayRef = useRef(unavailAllDayDates);
-  unavailAllDayRef.current = unavailAllDayDates;
+  const unavailBarsByDayRef = useRef(unavailBarsByDay);
+  unavailBarsByDayRef.current = unavailBarsByDay;
   const apptsByDay = {};
   for (const a of (data.appointments || [])) {
     const day = getApptDate(a?.appointment_at);
@@ -326,7 +344,7 @@ export default function Calendar() {
       start: `${s.date}T${s.start_time}`,
       end: `${s.date}T${s.end_time}`,
       display: 'background',
-      color: blocked ? '#fee2e2' : '#dcfce7',
+      color: blocked ? '#fca5a5' : '#86efac',
       extendedProps: { isAvailability: true },
     }];
   });
@@ -349,8 +367,15 @@ export default function Calendar() {
       // same-day 23:59 Z) bump by one so the event covers the full day.
       return { ...base, start: startDate, end: startDate === endDate ? addDays(endDate, 1) : endDate, allDay: true };
     }
-    // Partial-day: ISO strings + FullCalendar timeZone handles UTC→Eastern correctly.
-    return { ...base, start: b.start_at, end: b.end_at };
+    // Partial-day: render as a background tint so it doesn't block event rendering.
+    return {
+      id:      `unavail-${b.id}`,
+      start:   b.start_at,
+      end:     b.end_at,
+      display: 'background',
+      color:   'rgba(239,68,68,0.55)',
+      extendedProps: { isUnavailability: true },
+    };
   });
 
   const handleEventClick = async ({ event }) => {
@@ -530,9 +555,11 @@ export default function Calendar() {
             .fc .fc-button-primary:focus {
               box-shadow: 0 0 0 2px rgba(59,130,246,0.4) !important;
             }
-            .fc-day-available    { background-color: rgba(34,197,94,0.10)  !important; }
-            .fc-day-blocked      { background-color: rgba(239,68,68,0.10)  !important; }
-            .fc-day-unavailable  { background-color: rgba(220,38,38,0.22)  !important; }
+            .fc-day-available        { background-color: rgba(34,197,94,0.10)  !important; }
+            .fc-day-blocked          { background-color: rgba(239,68,68,0.10)  !important; }
+            .fc-day-unavail-allday   { background-color: rgba(239,68,68,0.13)  !important; }
+            .fc-daygrid-day-top      { overflow: visible; }
+            .fc-daygrid-day-frame    { overflow: hidden !important; }
           `}</style>
           <Card>
             <CardContent className="pt-4 pb-2 px-2 sm:px-6 sm:pb-4">
@@ -583,13 +610,37 @@ export default function Calendar() {
                 }}
                 dayCellClassNames={(arg) => {
                   const ymd = toYMD(arg.date);
-                  // All-day unavailability → red cell in every view
-                  if (unavailAllDayRef.current.has(ymd)) return ['fc-day-unavailable'];
-                  // Schedule-based availability tinting — month view only
+                  if (unavailBarsByDayRef.current[ymd]?.allDay) return ['fc-day-unavail-allday'];
                   if (arg.view.type !== 'dayGridMonth') return [];
                   const daySlots = slotsByDayRef.current[ymd];
                   if (!daySlots?.length) return [];
                   return [daySlots.every(s => Number(s.capacity) === 0) ? 'fc-day-blocked' : 'fc-day-available'];
+                }}
+                dayCellContent={(arg) => {
+                  if (arg.view.type !== 'dayGridMonth') return { domNodes: [] };
+                  const entry = unavailBarsByDayRef.current[toYMD(arg.date)];
+                  const bars = (!entry?.allDay && entry?.bars?.length) ? entry.bars : null;
+                  return (
+                    <>
+                      {bars?.map((bar, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            position: 'absolute',
+                            left: -20, right: -20,
+                            top: `${bar.topPct}%`,
+                            height: `${bar.heightPct}%`,
+                            minHeight: 3,
+                            background: 'rgba(239,68,68,0.55)',
+                            borderRadius: 0,
+                            pointerEvents: 'none',
+                            zIndex: 0,
+                          }}
+                        />
+                      ))}
+                      <span style={{ position: 'relative', zIndex: 1 }}>{arg.dayNumberText}</span>
+                    </>
+                  );
                 }}
                 eventClick={handleEventClick}
                 datesSet={handleDatesSet}
@@ -731,7 +782,7 @@ export default function Calendar() {
                         {daySlots.length === 0 ? (
                           <span className="text-xs text-muted-foreground">Closed</span>
                         ) : daySlots.every(s => Number(s.capacity) === 0) ? (
-                          <Badge className="bg-red-100 text-red-700">Unavailable</Badge>
+                          <Badge className="bg-red-200 text-red-700">Unavailable</Badge>
                         ) : daySlots.map((s, i) => (
                           <Badge key={i} className={s.source === 'specific' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}>
                             {s.start_time}–{s.end_time} · cap {s.capacity}
@@ -740,7 +791,7 @@ export default function Calendar() {
                         {(data.unavailability || [])
                           .filter(b => day >= b.start_at.slice(0, 10) && day <= b.end_at.slice(0, 10))
                           .map(b => (
-                            <Badge key={`u-${b.id}`} className="bg-red-100 text-red-700 border border-red-200">
+                            <Badge key={`u-${b.id}`} className="bg-red-200 text-red-700 border border-red-200">
                               {b.title}
                             </Badge>
                           ))
