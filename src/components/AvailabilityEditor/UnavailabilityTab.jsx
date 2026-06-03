@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Ban, Upload } from 'lucide-react';
+import { Loader2, Ban, Upload, Link } from 'lucide-react';
 import { toast } from 'sonner';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -23,8 +23,11 @@ export default function UnavailabilityTab({
   clientId, blocks, loading,
   onBlockCreated, onBlockUpdated, onBlockDeleted,
   onQuickBlock, icsRef, onICSImport, icsImporting,
+  onUrlImport, urlImporting,
 }) {
   const [pendingSelect, setPendingSelect] = useState(null);
+  const [urlDialogOpen, setUrlDialogOpen] = useState(false);
+  const [calendarUrl, setCalendarUrl] = useState('');
   const [pendingTitle, setPendingTitle]   = useState('Unavailable');
   const [pendingAllDay, setPendingAllDay] = useState(false);
   const [pendingFromTime, setPendingFromTime] = useState('09:00');
@@ -138,8 +141,16 @@ export default function UnavailabilityTab({
             </Button>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
+                onClick={() => setUrlDialogOpen(true)}
+                disabled={urlImporting || icsImporting}>
+                {urlImporting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Link className="w-3.5 h-3.5" />}
+                {urlImporting ? 'Importing…' : 'Import from URL'}
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
                 onClick={() => icsRef.current?.click()}
-                disabled={icsImporting}>
+                disabled={icsImporting || urlImporting}>
                 {icsImporting
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   : <Upload className="w-3.5 h-3.5" />}
@@ -304,6 +315,53 @@ export default function UnavailabilityTab({
                 {savingNew ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Block time'}
               </Button>
               
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* URL import dialog */}
+      <Dialog open={urlDialogOpen} onOpenChange={(open) => { if (!open) { setUrlDialogOpen(false); setCalendarUrl(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import calendar from URL</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5 rounded-md bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Use an iCal export URL, not a share/create link.</p>
+              <p>Google Calendar: open calendar settings → <em>Integrate calendar</em> → copy the <strong>Secret address in iCal format</strong>.</p>
+              <p>Outlook: go to <em>Publish calendar</em> and copy the ICS link.</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Calendar URL (.ics / webcal)</Label>
+              <Input
+                value={calendarUrl}
+                onChange={e => setCalendarUrl(e.target.value)}
+                placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
+                className="h-9 text-sm"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && calendarUrl.trim()) {
+                    onUrlImport(calendarUrl.trim());
+                    setUrlDialogOpen(false);
+                    setCalendarUrl('');
+                  }
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setUrlDialogOpen(false); setCalendarUrl(''); }}>Cancel</Button>
+              <Button
+                className="flex-1"
+                disabled={!calendarUrl.trim() || urlImporting}
+                onClick={() => {
+                  onUrlImport(calendarUrl.trim());
+                  setUrlDialogOpen(false);
+                  setCalendarUrl('');
+                }}
+              >
+                Import
+              </Button>
             </div>
           </div>
         </DialogContent>

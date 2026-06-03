@@ -107,6 +107,8 @@ export const apiClient = {
   },
   createUnavailability: (body) =>
     request('/api/unavailability', { method: 'POST', body }),
+  importICSBatch: (body) =>
+    request('/api/unavailability/import-ics', { method: 'POST', body }),
   updateUnavailability: (id, body) =>
     request(`/api/unavailability/${id}`, { method: 'PUT', body }),
   deleteUnavailability: (id) =>

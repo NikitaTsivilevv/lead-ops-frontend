@@ -64,19 +64,26 @@ export default function AvailabilityEditor() {
   const [unavailBlocks, setUnavailBlocks] = useState([]);
   const [unavailLoading, setUnavailLoading] = useState(false);
   const [icsImporting, setIcsImporting] = useState(false);
+  const [urlImporting, setUrlImporting] = useState(false);
   const icsBlockRef = useRef(null);
 
-  const loadUnavailability = useCallback(async (cid) => {
+  const loadUnavailability = useCallback(async (cid, range = null) => {
     setUnavailLoading(true);
     try {
-      const from = new Date();
-      from.setDate(from.getDate() - 7);
-      const to = new Date();
-      to.setMonth(to.getMonth() + 3);
+      let from, to;
+      if (range) {
+        from = range.from;
+        to   = range.to;
+      } else {
+        const f = new Date(); f.setDate(f.getDate() - 7);
+        const t = new Date(); t.setMonth(t.getMonth() + 3);
+        from = f.toISOString().slice(0, 10);
+        to   = t.toISOString().slice(0, 10);
+      }
       const res = await apiClient.listUnavailability({
         client_id: isAdminOps ? cid : undefined,
-        from: from.toISOString().slice(0, 10),
-        to:   to.toISOString().slice(0, 10),
+        from,
+        to,
       });
       setUnavailBlocks(res.unavailability || []);
     } catch {
@@ -127,6 +134,32 @@ export default function AvailabilityEditor() {
     }
   };
 
+  // ── ICS shared batch helper ────────────────────────────────────────────────
+  const importICSEvents = async (events, filename = 'calendar.ics') => {
+    const result = await apiClient.importICSBatch({
+      client_id: Number(clientId),
+      filename,
+      events: events.map(evt => ({
+        uid:      evt.uid ?? null,
+        title:    evt.title,
+        start_at: evt.start_at,
+        end_at:   evt.end_at,
+        all_day:  evt.all_day,
+      })),
+    });
+    const { inserted = 0, updated = 0 } = result;
+    const parts = [];
+    if (inserted) parts.push(`${inserted} added`);
+    if (updated)  parts.push(`${updated} updated`);
+    toast.success(`Calendar imported: ${parts.join(', ') || 'no changes'}.`);
+
+    // Reload with the full span of imported events so all blocks are visible
+    const allDates = events.flatMap(e => [e.start_at, e.end_at]);
+    const from = allDates.reduce((a, b) => a < b ? a : b).slice(0, 10);
+    const to   = allDates.reduce((a, b) => a > b ? a : b).slice(0, 10);
+    await loadUnavailability(clientId, { from, to });
+  };
+
   // ── ICS import ─────────────────────────────────────────────────────────────
   const handleICSBlockImport = (e) => {
     const file = e.target.files?.[0];
@@ -136,30 +169,44 @@ export default function AvailabilityEditor() {
       const events = parseICSEvents(ev.target.result);
       if (events.length === 0) { toast.info('No events found in file.'); return; }
       setIcsImporting(true);
-      toast.info(`Scanning ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      toast.info(`Importing ${events.length} event${events.length === 1 ? '' : 's'}…`);
       try {
-        const results = await Promise.allSettled(
-          events.map(evt => apiClient.createUnavailability({
-            client_id: Number(clientId),
-            title:     evt.title,
-            start_at:  evt.start_at,
-            end_at:    evt.end_at,
-            all_day:   evt.all_day,
-            uid:       evt.uid,
-            source:    'ics',
-          }))
-        );
-        const created = results.filter(r => r.status === 'fulfilled').length;
-        const failed  = results.length - created;
-        if (created) toast.success(`Imported ${created} unavailability block${created === 1 ? '' : 's'}.`);
-        if (failed)  toast.error(`${failed} block${failed === 1 ? '' : 's'} failed to import.`);
-        await loadUnavailability(clientId);
+        await importICSEvents(events, file.name);
       } finally {
         setIcsImporting(false);
       }
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleICSUrlImport = async (rawUrl) => {
+    const url = rawUrl.replace(/^webcal:\/\//i, 'https://');
+    const fetchUrl = import.meta.env.DEV
+      ? `/ics-proxy?url=${encodeURIComponent(url)}`
+      : url;
+    setUrlImporting(true);
+    try {
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error(`Failed to fetch calendar (${res.status})`);
+      const text = await res.text();
+      if (!text.includes('BEGIN:VCALENDAR')) {
+        const isHtml = text.trimStart().startsWith('<');
+        throw new Error(
+          isHtml
+            ? 'That URL returned a web page, not a calendar feed. You need the .ics export URL — not a share link or "create event" link.'
+            : 'That URL did not return a valid calendar. Make sure it ends in .ics or is a direct iCal feed link.'
+        );
+      }
+      const events = parseICSEvents(text);
+      if (events.length === 0) { toast.info('No events found in that calendar feed.'); return; }
+      toast.info(`Importing ${events.length} event${events.length === 1 ? '' : 's'}…`);
+      await importICSEvents(events);
+    } catch (err) {
+      toast.error(err.message || 'Failed to fetch calendar URL.');
+    } finally {
+      setUrlImporting(false);
+    }
   };
 
   // ── schedule tab helpers ───────────────────────────────────────────────────
@@ -274,6 +321,8 @@ export default function AvailabilityEditor() {
             icsRef={icsBlockRef}
             onICSImport={handleICSBlockImport}
             icsImporting={icsImporting}
+            onUrlImport={handleICSUrlImport}
+            urlImporting={urlImporting}
           />
         )}
 

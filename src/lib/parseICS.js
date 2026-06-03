@@ -20,7 +20,7 @@ function parseICSDateTime(keyStr, valStr) {
 /**
  * Parse .ics text and return an array of event objects, each ready to be
  * created via POST /api/unavailability (the main unavailability route).
- * Preserves full timestamps, event titles, and UIDs.
+ * Extracts only time ranges — all events get title "Unavailable", meeting details are discarded.
  */
 export function parseICSEvents(text) {
   const lines = text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
@@ -44,10 +44,18 @@ export function parseICSEvents(text) {
         const endParsed = parseICSDateTime(cur.endRaw.key, cur.endRaw.val);
         if (endParsed) {
           if (endParsed.allDay) {
-            // ICS all-day DTEND is exclusive midnight — store as 23:59:59 of the previous day
-            const d = new Date(endParsed.iso);
-            d.setUTCSeconds(d.getUTCSeconds() - 1);
-            endIso = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+            const endD   = new Date(endParsed.iso);
+            const startD = new Date(startParsed.iso);
+            if (endD <= startD) {
+              // DTEND == DTSTART (some providers, e.g. calendarlabs): treat as full start day
+              const d = new Date(startParsed.iso);
+              d.setUTCHours(23, 59, 59, 0);
+              endIso = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+            } else {
+              // Standard: DTEND is exclusive midnight → use 23:59:59 of previous day
+              endD.setUTCSeconds(endD.getUTCSeconds() - 1);
+              endIso = endD.toISOString().replace(/\.\d{3}Z$/, 'Z');
+            }
           } else {
             endIso = endParsed.iso;
           }
@@ -55,9 +63,16 @@ export function parseICSEvents(text) {
         }
       }
 
+      // Guard: backend requires end_at > start_at
+      if (endIso <= startParsed.iso) {
+        const d = new Date(startParsed.iso);
+        d.setUTCSeconds(d.getUTCSeconds() + 1);
+        endIso = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      }
+
       events.push({
-        uid:      cur.uid   || null,
-        title:    cur.title || 'Unavailable',
+        uid:      cur.uid ?? null,
+        title:    'Unavailable',
         start_at: startParsed.iso,
         end_at:   endIso,
         all_day:  allDay,
@@ -68,9 +83,8 @@ export function parseICSEvents(text) {
       const key = line.slice(0, ci);
       const val = line.slice(ci + 1);
       if (key === 'DTSTART' || key.startsWith('DTSTART;')) cur.startRaw = { key, val };
-      else if (key === 'DTEND'    || key.startsWith('DTEND;'))    cur.endRaw  = { key, val };
-      else if (key === 'SUMMARY') cur.title = val.replace(/\\,/g, ',').replace(/\\n/g, '\n').trim();
-      else if (key === 'UID')     cur.uid   = val.trim();
+      else if (key === 'DTEND' || key.startsWith('DTEND;')) cur.endRaw  = { key, val };
+      else if (key === 'UID') cur.uid = val.trim() || null;
     }
   }
 
