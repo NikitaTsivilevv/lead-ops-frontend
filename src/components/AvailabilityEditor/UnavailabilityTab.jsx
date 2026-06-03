@@ -14,6 +14,11 @@ import interactionPlugin from '@fullcalendar/interaction';
 import UnavailBlockRow from './UnavailBlockRow';
 import BlockEditDialog from './BlockEditDialog';
 
+function fcDateToISO(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}Z`;
+}
+
 export default function UnavailabilityTab({
   clientId, blocks, loading,
   onBlockCreated, onBlockUpdated, onBlockDeleted,
@@ -44,8 +49,8 @@ export default function UnavailabilityTab({
     setPendingTitle('Unavailable');
     setPendingAllDay(allDay);
     const pad = n => String(n).padStart(2, '0');
-    setPendingFromTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
-    setPendingToTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
+    setPendingFromTime(`${pad(start.getUTCHours())}:${pad(start.getUTCMinutes())}`);
+    setPendingToTime(`${pad(end.getUTCHours())}:${pad(end.getUTCMinutes())}`);
   };
 
   const handleConfirmCreate = async () => {
@@ -53,16 +58,15 @@ export default function UnavailabilityTab({
     setSavingNew(true);
     try {
       let startAt, endAt;
+      const s = pendingSelect.start;
+      const pad = n => String(n).padStart(2, '0');
+      const date = `${s.getUTCFullYear()}-${pad(s.getUTCMonth() + 1)}-${pad(s.getUTCDate())}`;
       if (pendingAllDay) {
-        const s = pendingSelect.start;
-        startAt = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0).toISOString();
-        endAt   = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 23, 59, 59).toISOString();
+        startAt = `${date}T00:00:00Z`;
+        endAt   = `${date}T23:59:59Z`;
       } else {
-        const [fh, fm] = pendingFromTime.split(':').map(Number);
-        const [th, tm] = pendingToTime.split(':').map(Number);
-        const s = pendingSelect.start;
-        startAt = new Date(s.getFullYear(), s.getMonth(), s.getDate(), fh, fm).toISOString();
-        endAt   = new Date(s.getFullYear(), s.getMonth(), s.getDate(), th, tm).toISOString();
+        startAt = `${date}T${pendingFromTime}:00Z`;
+        endAt   = `${date}T${pendingToTime}:00Z`;
       }
       const res = await apiClient.createUnavailability({
         client_id: Number(clientId),
@@ -84,8 +88,8 @@ export default function UnavailabilityTab({
 
   const handleEventDrop = async ({ event, revert }) => {
     const updates = {
-      start_at: event.start.toISOString(),
-      end_at:   (event.end ?? event.start).toISOString(),
+      start_at: fcDateToISO(event.start),
+      end_at:   fcDateToISO(event.end ?? event.start),
       all_day:  event.allDay,
     };
     try {
@@ -98,7 +102,7 @@ export default function UnavailabilityTab({
   };
 
   const handleEventResize = async ({ event, revert }) => {
-    const updates = { start_at: event.start.toISOString(), end_at: event.end.toISOString() };
+    const updates = { start_at: fcDateToISO(event.start), end_at: fcDateToISO(event.end) };
     try {
       await apiClient.updateUnavailability(Number(event.id), updates);
       onBlockUpdated(Number(event.id), updates);
@@ -178,7 +182,7 @@ export default function UnavailabilityTab({
               <FullCalendar
                 plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
                 initialView="timeGridWeek"
-                timeZone="local"
+                timeZone="UTC"
                 headerToolbar={{
                   left:   'prev,next today',
                   center: 'title',
@@ -286,10 +290,11 @@ export default function UnavailabilityTab({
               </div>
             )}
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setPendingSelect(null)}>Cancel</Button>
               <Button onClick={handleConfirmCreate} disabled={savingNew} className="flex-1">
                 {savingNew ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Block time'}
               </Button>
-              <Button variant="outline" onClick={() => setPendingSelect(null)}>Cancel</Button>
+              
             </div>
           </div>
         </DialogContent>

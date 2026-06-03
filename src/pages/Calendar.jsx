@@ -263,21 +263,24 @@ export default function Calendar() {
   const slotsByDayRef = useRef(slotsByDay);
   slotsByDayRef.current = slotsByDay;
 
-  // Build a Set of YYYY-MM-DD dates covered by all-day unavailability blocks
+  // Build Sets of YYYY-MM-DD dates covered by unavailability blocks
   const unavailAllDayDates = new Set();
+  const unavailPartialDayDates = new Set();
   for (const b of (data.unavailability || [])) {
-    if (!b.all_day) continue;
+    const target = b.all_day ? unavailAllDayDates : unavailPartialDayDates;
     let cur = b.start_at.slice(0, 10);
     const end = b.end_at.slice(0, 10);
     let safety = 0;
     while (cur <= end && safety < 366) {
-      unavailAllDayDates.add(cur);
+      target.add(cur);
       cur = addDays(cur, 1);
       safety++;
     }
   }
   const unavailAllDayRef = useRef(unavailAllDayDates);
   unavailAllDayRef.current = unavailAllDayDates;
+  const unavailPartialDayRef = useRef(unavailPartialDayDates);
+  unavailPartialDayRef.current = unavailPartialDayDates;
   const apptsByDay = {};
   for (const a of (data.appointments || [])) {
     const day = getApptDate(a?.appointment_at);
@@ -349,8 +352,15 @@ export default function Calendar() {
       // same-day 23:59 Z) bump by one so the event covers the full day.
       return { ...base, start: startDate, end: startDate === endDate ? addDays(endDate, 1) : endDate, allDay: true };
     }
-    // Partial-day: ISO strings + FullCalendar timeZone handles UTC→Eastern correctly.
-    return { ...base, start: b.start_at, end: b.end_at };
+    // Partial-day: render as a background tint so it doesn't block event rendering.
+    return {
+      id:      `unavail-${b.id}`,
+      start:   b.start_at,
+      end:     b.end_at,
+      display: 'background',
+      color:   'rgba(239,68,68,0.22)',
+      extendedProps: { isUnavailability: true },
+    };
   });
 
   const handleEventClick = async ({ event }) => {
@@ -530,9 +540,10 @@ export default function Calendar() {
             .fc .fc-button-primary:focus {
               box-shadow: 0 0 0 2px rgba(59,130,246,0.4) !important;
             }
-            .fc-day-available    { background-color: rgba(34,197,94,0.10)  !important; }
-            .fc-day-blocked      { background-color: rgba(239,68,68,0.10)  !important; }
-            .fc-day-unavailable  { background-color: rgba(220,38,38,0.22)  !important; }
+            .fc-day-available         { background-color: rgba(34,197,94,0.10)  !important; }
+            .fc-day-blocked           { background-color: rgba(239,68,68,0.10)  !important; }
+            .fc-day-unavailable       { background-color: rgba(220,38,38,0.22)  !important; }
+            .fc-day-partial-unavail   { background: linear-gradient(to bottom, transparent 0%, rgba(239,68,68,0.18) 100%) !important; }
           `}</style>
           <Card>
             <CardContent className="pt-4 pb-2 px-2 sm:px-6 sm:pb-4">
@@ -583,10 +594,9 @@ export default function Calendar() {
                 }}
                 dayCellClassNames={(arg) => {
                   const ymd = toYMD(arg.date);
-                  // All-day unavailability → red cell in every view
                   if (unavailAllDayRef.current.has(ymd)) return ['fc-day-unavailable'];
-                  // Schedule-based availability tinting — month view only
                   if (arg.view.type !== 'dayGridMonth') return [];
+                  if (unavailPartialDayRef.current.has(ymd)) return ['fc-day-partial-unavail'];
                   const daySlots = slotsByDayRef.current[ymd];
                   if (!daySlots?.length) return [];
                   return [daySlots.every(s => Number(s.capacity) === 0) ? 'fc-day-blocked' : 'fc-day-available'];
