@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { roleLabel } from '@/lib/roles';
 
@@ -18,6 +18,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState({ email: '', role: 'operations', client_id: '', full_name: '' });
   const [inviting, setInviting] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +94,16 @@ export default function AdminUsers() {
           </form>
         </CardContent></Card>
 
+        <div className="relative bg-white rounded-md ">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by email, name or role…"
+            className="h-9 pl-9"
+          />
+        </div>
+
         <Card><CardContent className="pt-4">
           {loading ? <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div> : (
             <div className="overflow-x-auto">
@@ -101,7 +112,10 @@ export default function AdminUsers() {
                   <th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Name</th><th className="py-2 pr-3">Role</th>
                   <th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Last login</th><th className="py-2 pr-3">Actions</th></tr></thead>
                 <tbody>
-                  {users.map((u) => (
+                  {users.filter((u) => {
+                    const q = search.toLowerCase();
+                    return !q || u.email?.toLowerCase().includes(q) || u.full_name?.toLowerCase().includes(q) || u.role?.toLowerCase().includes(q);
+                  }).map((u) => (
                     <tr key={u.id} className="border-b last:border-0">
                       <td className="py-2 pr-3">{u.email}</td>
                       <td className="py-2 pr-3">{u.full_name || '—'}</td>

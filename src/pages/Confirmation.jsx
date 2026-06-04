@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { apiClient } from '@/api/apiClient';
 import { confirmationPlan } from '@/lib/confirmationPlan';
+import Searchbar from '@/components/Searchbar';
 
 // ─── derived_state badge ──────────────────────────────────────────────────────
 
@@ -27,8 +28,7 @@ function DerivedStateBadge({ derivedState }) {
   if (!cls) return null;
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}
-    >
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
       {DERIVED_STATE_LABEL[derivedState] ?? derivedState}
     </span>
   );
@@ -92,7 +92,9 @@ function LeadCard({ lead }) {
         <CardContent className="space-y-1 text-xs">
           <div className="text-muted-foreground">
             {lead.appointment_at
-              ? new Date(lead.appointment_at).toLocaleString('en-US', { timeZone: 'America/New_York' })
+              ? new Date(lead.appointment_at).toLocaleString('en-US', {
+                  timeZone: 'America/New_York',
+                })
               : '—'}
           </div>
           <div className="flex gap-1.5 flex-wrap">
@@ -115,9 +117,12 @@ function LeadCard({ lead }) {
 export default function Confirmation() {
   const [clientFilter, setClientFilter] = React.useState('');
   const [clients, setClients] = React.useState([]);
+  const [search, setSearch] = React.useState('');
+  const [colFilter, setColFilter] = React.useState('');
   React.useEffect(() => {
-    apiClient.listClients()
-      .then((d) => setClients(Array.isArray(d) ? d : (d.clients || [])))
+    apiClient
+      .listClients()
+      .then((d) => setClients(Array.isArray(d) ? d : d.clients || []))
       .catch(() => setClients([]));
   }, []);
 
@@ -128,7 +133,16 @@ export default function Confirmation() {
   });
 
   const all = data?.appointments ?? [];
-  const leads = clientFilter ? all.filter((l) => String(l.client_id) === clientFilter) : all;
+  const leads = all.filter((l) => {
+    if (clientFilter && String(l.client_id) !== clientFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        l.prospect_name?.toLowerCase().includes(q) || l.prospect_phone?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const COLS = [
     ['qualification', 'Qualification'],
@@ -140,41 +154,87 @@ export default function Confirmation() {
     ['no-show', 'No-show'],
   ];
   const grouped = Object.fromEntries(COLS.map(([k]) => [k, []]));
-  leads.forEach((l) => { const b = bucket(l); if (b && grouped[b]) grouped[b].push(l); });
+  leads.forEach((l) => {
+    const b = bucket(l);
+    if (b && grouped[b]) grouped[b].push(l);
+  });
 
   return (
     <div className="min-h-screen bg-background py-6 px-4">
       <div className="max-w-none mx-auto">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h1 className="text-2xl font-semibold">Confirmation</h1>
-          <select
-            className="h-9 rounded-md border bg-background px-2 text-sm"
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-          >
-            <option value="">All clients</option>
-            {clients.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
-            ))}
-          </select>
+          <div className="w-full flex flex-row gap-4">
+            <select
+              className="h-9 rounded-md border bg-white px-2 text-sm"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}>
+              <option value="">All clients</option>
+              {clients.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border bg-white px-2 text-sm w-[200px]"
+              value={colFilter}
+              onChange={(e) => setColFilter(e.target.value)}>
+              <option value="">All columns</option>
+              {COLS.map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Searchbar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name or phone…"
+              className="w-[250px]"
+            />
+          </div>
         </div>
         {isLoading && <p className="text-muted-foreground">Loading…</p>}
         {isError && <p className="text-destructive">Failed: {String(error?.message || error)}</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
-          {COLS.map(([key, label]) => (
-            <div key={key} className="space-y-3">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                {label} <span className="text-foreground">({grouped[key].length})</span>
-              </div>
-              <div className="space-y-2">
-                {grouped[key].map((l) => <LeadCard key={l.id} lead={l} />)}
-                {grouped[key].length === 0 && (
-                  <p className="text-xs text-muted-foreground italic">Empty</p>
-                )}
-              </div>
+
+        {colFilter ? (
+          <>
+            <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              {COLS.find(([k]) => k === colFilter)?.[1]}{' '}
+              <span className="text-foreground">({grouped[colFilter].length})</span>
             </div>
-          ))}
-        </div>
+            {grouped[colFilter].length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No cards in this column.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {grouped[colFilter].map((l) => (
+                  <div key={l.id} className="w-64 shrink-0">
+                    <LeadCard lead={l} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+            {COLS.map(([key, label]) => (
+              <div key={key} className="space-y-3">
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  {label} <span className="text-foreground">({grouped[key].length})</span>
+                </div>
+                <div className="space-y-2">
+                  {grouped[key].map((l) => (
+                    <LeadCard key={l.id} lead={l} />
+                  ))}
+                  {grouped[key].length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">Empty</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
