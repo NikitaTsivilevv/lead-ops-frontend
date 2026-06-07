@@ -16,6 +16,7 @@ const RENOVATION_OPTIONS = [
 const INITIAL = {
   client_id: '',
   caller_name: '',
+  lead_source: 'cold_calling',
   prospect_name: '',
   address_street: '',
   address_city: '',
@@ -63,19 +64,14 @@ function explainLeadError(err) {
   const payload = err?.payload || {};
   const errorCode = payload.error;
   const message = payload.message || '';
-  const requiredRoles = payload.required_roles || [];
-
   // 403 from the requireRole middleware (response shape: { error: 'forbidden', required_roles: [...] })
   if (status === 403 && errorCode === 'forbidden') {
-    if (requiredRoles.includes('caller')) {
-      return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
-    }
-    return 'You do not have permission to submit leads.';
+    return 'You do not have permission to submit leads. Sign in with a caller or confirmation account.';
   }
 
   // 403 thrown from inside the service (response shape: { error: 'forbidden', message: '...' })
   if (status === 403 && message.toLowerCase().includes('only callers')) {
-    return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
+    return 'You do not have permission to submit leads. Sign in with a caller or confirmation account.';
   }
 
   // 400 no_client_assigned — a caller account exists but has no client_id link
@@ -171,6 +167,7 @@ export default function Intake() {
 
     const body = {
       caller_name: form.caller_name,
+      lead_source: form.lead_source,
       client_id: form.client_id ? Number(form.client_id) : undefined,
       prospect_name: form.prospect_name,
       address_street: form.address_street || null,
@@ -251,6 +248,20 @@ export default function Intake() {
                     {callers.map(c => (
                       <option key={c.id} value={c.full_name}>{c.full_name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="lead_source">Lead source *</Label>
+                  <select
+                    id="lead_source"
+                    className="h-9 rounded-md border bg-background px-2 text-sm w-full"
+                    value={form.lead_source}
+                    onChange={e => setField('lead_source', e.target.value)}
+                    required
+                  >
+                    <option value="cold_calling">Cold calling</option>
+                    <option value="meta">Meta</option>
                   </select>
                 </div>
 

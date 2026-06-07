@@ -30,10 +30,10 @@ function NavLinks({ user, onClick }) {
       {['admin', 'operations', 'confirmation'].includes(user.role) && (
         <NavLink to="/confirmation" className={linkClass} onClick={onClick}>Confirmation</NavLink>
       )}
-      {user.role === 'caller' && (
+      {['caller','confirmation'].includes(user.role) && (
         <NavLink to="/intake" className={linkClass} onClick={onClick}>New lead</NavLink>
       )}
-      {user.role === 'caller' && (
+      {['caller','confirmation'].includes(user.role) && (
         <NavLink to="/my-leads" className={linkClass} onClick={onClick}>My Leads</NavLink>
       )}
       {user.role === 'admin' && (

@@ -30,8 +30,8 @@ const AppRoutes = () => (
     <Route path="/accept-invite" element={<AcceptInvite />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
-    <Route path="/intake" element={<RequireAuth allow={['caller','admin']}><Intake /></RequireAuth>} />
-    <Route path="/my-leads" element={<RequireAuth allow={['caller','admin']}><MyLeads /></RequireAuth>} />
+    <Route path="/intake" element={<RequireAuth allow={['caller','admin','confirmation']}><Intake /></RequireAuth>} />
+    <Route path="/my-leads" element={<RequireAuth allow={['caller','admin','confirmation']}><MyLeads /></RequireAuth>} />
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
     <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><AppointmentDetail /></RequireAuth>} />

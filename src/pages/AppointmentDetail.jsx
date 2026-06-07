@@ -608,6 +608,13 @@ export default function AppointmentDetail() {
             {!editingLead && (
               <>
                 <InfoRow label="Client">{appt.client_name || '—'}</InfoRow>
+                {appt.lead_source !== undefined && appt.lead_source !== null && (
+                  <InfoRow label="Lead source">
+                    {appt.lead_source === 'meta' ? 'Meta'
+                      : appt.lead_source === 'cold_calling' ? 'Cold calling'
+                      : '—'}
+                  </InfoRow>
+                )}
                 <InfoRow label="Appointment">{formatFullET(appt.appointment_at)}</InfoRow>
 
                 {/* Prospect name — may be redacted for client viewers before accept */}
