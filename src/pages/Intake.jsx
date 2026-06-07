@@ -64,19 +64,14 @@ function explainLeadError(err) {
   const payload = err?.payload || {};
   const errorCode = payload.error;
   const message = payload.message || '';
-  const requiredRoles = payload.required_roles || [];
-
   // 403 from the requireRole middleware (response shape: { error: 'forbidden', required_roles: [...] })
   if (status === 403 && errorCode === 'forbidden') {
-    if (requiredRoles.includes('caller')) {
-      return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
-    }
-    return 'You do not have permission to submit leads.';
+    return 'You do not have permission to submit leads. Sign in with a caller or confirmation account.';
   }
 
   // 403 thrown from inside the service (response shape: { error: 'forbidden', message: '...' })
   if (status === 403 && message.toLowerCase().includes('only callers')) {
-    return 'Only users with the Caller role can submit leads. Sign in with a caller account.';
+    return 'You do not have permission to submit leads. Sign in with a caller or confirmation account.';
   }
 
   // 400 no_client_assigned — a caller account exists but has no client_id link
