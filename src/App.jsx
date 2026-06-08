@@ -19,6 +19,7 @@ import MyLeads from '@/pages/MyLeads';
 import AdminCallers from '@/pages/AdminCallers';
 import AdminClients from '@/pages/AdminClients';
 import AdminUsers from '@/pages/AdminUsers';
+import AdminBilling from '@/pages/AdminBilling';
 import AcceptInvite from '@/pages/AcceptInvite';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
@@ -41,6 +42,7 @@ const AppRoutes = () => (
     <Route path="/admin/callers" element={<RequireAuth allow={['admin']}><AdminCallers /></RequireAuth>} />
     <Route path="/admin/clients" element={<RequireAuth allow={['admin']}><AdminClients /></RequireAuth>} />
     <Route path="/admin/users" element={<RequireAuth allow={['admin']}><AdminUsers /></RequireAuth>} />
+    <Route path="/admin/billing" element={<RequireAuth allow={['admin','operations']}><AdminBilling /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
