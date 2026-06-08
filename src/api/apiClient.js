@@ -97,6 +97,13 @@ export const apiClient = {
   listClients: () => request('/api/clients'),
   createClient: (body) => request('/api/clients', { method: 'POST', body }),
   updateClient: (id, body) => request(`/api/clients/${id}`, { method: 'PATCH', body }),
+  // billing / revenue (Phase 2 A — admin/operations)
+  getBillingModel: (clientId) => request(`/api/clients/${clientId}/billing-model`),
+  putBillingModel: (clientId, body) => request(`/api/clients/${clientId}/billing-model`, { method: 'PUT', body }),
+  getRevenue: ({ client_id, year, month }) =>
+    request(`/api/revenue?client_id=${client_id}&year=${year}&month=${month}`),
+  lockRevenueMonth: (body) => request('/api/revenue/snapshots', { method: 'POST', body }),
+  unlockRevenueSnapshot: (id) => request(`/api/revenue/snapshots/${id}`, { method: 'DELETE' }),
   // unavailability blocks
   listUnavailability: ({ client_id, from, to }) => {
     const qs = new URLSearchParams(
