@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { apiClient } from '@/api/apiClient';
+import { useAuth } from '@/lib/LeadOpsAuthContext';
 
 const now = new Date();
 const fmt = (cents) => `$${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
 export default function AdminBilling() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const qc = useQueryClient();
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => apiClient.listClients() });
   const [clientId, setClientId] = useState('');
@@ -107,9 +110,11 @@ export default function AdminBilling() {
                   <option value="max">Whichever greater (max)</option>
                 </select>
               </div>
-              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-                {saveMut.isPending ? 'Saving…' : 'Save model'}
-              </Button>
+              {isAdmin && (
+                <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+                  {saveMut.isPending ? 'Saving…' : 'Save model'}
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -137,7 +142,7 @@ export default function AdminBilling() {
                   <div className="text-base">Revenue: <strong>{fmt(rev.revenue_cents)}</strong> {rev.locked ? '🔒 (locked)' : ''}</div>
                 </div>
               )}
-              {rev && !rev.locked && (
+              {isAdmin && rev && !rev.locked && (
                 <Button variant="outline" onClick={() => lockMut.mutate()} disabled={lockMut.isPending}>
                   {lockMut.isPending ? 'Locking…' : 'Lock month'}
                 </Button>
