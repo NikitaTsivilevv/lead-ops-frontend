@@ -483,11 +483,18 @@ export default function Calendar() {
   };
 
   const handleDatesSet = useCallback(
-    ({ startStr, endStr }) => {
+    ({ startStr, endStr, view }) => {
       const f = startStr.slice(0, 10);
       const t = endStr.slice(0, 10);
       calendarRangeRef.current = { from: f, to: t };
       fetchData(f, t, clientId, false);
+      if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
+        setTimeout(() => {
+          const el = calendarRef.current?.getApi()?.el;
+          const slot = el?.querySelector('[data-time="07:00:00"]');
+          if (slot) slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
     },
     [fetchData, clientId],
   );
@@ -829,7 +836,9 @@ export default function Calendar() {
                   height="auto"
                   eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: true }}
                   dayMaxEvents={isMobile ? 2 : true}
-                  moreLinkContent={(args) => `+${args.num} more`}
+                  moreLinkContent={(args) => (
+                    <div style={{ width: '100%', textAlign: 'center' }}>+{args.num} more</div>
+                  )}
                   windowResize={(arg) => {
                     const mobile = window.innerWidth < 768;
                     const currentView = arg.view.type;

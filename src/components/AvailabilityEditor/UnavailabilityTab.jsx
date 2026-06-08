@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { apiClient } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,7 @@ export default function UnavailabilityTab({
   blocked,
   onBlockedChange,
 }) {
+  const unavailCalendarRef = useRef(null);
   const [pendingSelect, setPendingSelect] = useState(null);
   const [urlDialogOpen, setUrlDialogOpen] = useState(false);
   const [calendarUrl, setCalendarUrl] = useState('');
@@ -261,7 +262,7 @@ export default function UnavailabilityTab({
             .unavail-fc .fc-daygrid-body .fc-daygrid-day-frame::before {
               content: 'Block all day';
               position: absolute;
-              top: 50%; left: 50%;
+              top: 20%; left: 50%;
               transform: translate(-50%, -50%);
               font-size: 0.62rem;
               color: #9ca3af;
@@ -276,6 +277,7 @@ export default function UnavailabilityTab({
           ) : (
             <div className="unavail-fc">
               <FullCalendar
+                ref={unavailCalendarRef}
                 plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
                 initialView="timeGridWeek"
                 timeZone="UTC"
@@ -295,6 +297,13 @@ export default function UnavailabilityTab({
                 eventResize={handleEventResize}
                 eventClick={handleEventClick}
                 height={620}
+                viewDidMount={({ view }) => {
+                  if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
+                    setTimeout(() => {
+                      unavailCalendarRef.current?.getApi().scrollToTime('07:00:00');
+                    }, 0);
+                  }
+                }}
                 slotMinTime="06:00:00"
                 slotMaxTime="22:00:00"
                 eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: true }}

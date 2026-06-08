@@ -125,3 +125,65 @@
     padding: 2px 2px !important;
   }
 }
+
+/* More-link spans the full cell width */
+.fc .fc-daygrid-day-bottom {
+  padding: 0 !important;
+}
+
+.fc .fc-daygrid-more-link {
+  display: block !important;
+  width: 100% !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  top: 2px;
+  height: 25px;
+  padding-top: 5px;
+}
+.fc .fc-daygrid-more-link:hover {
+  background-color: lightcoral;
+}
+
+/* ── FullCalendar "+N more" popover ─────────────────────────── */
+.fc .fc-popover {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.fc .fc-popover-header {
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--secondary-foreground)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) var(--radius) 0 0 !important;
+  padding: 0.4rem 0.6rem !important;
+}
+
+.fc .fc-popover-title {
+  color: hsl(var(--card-foreground)) !important;
+  font-weight: 600 !important;
+}
+
+.fc .fc-popover-close {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1 !important;
+}
+
+.fc .fc-popover-close:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+.fc .fc-popover-body {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  padding: 0.4rem !important;
+  border-radius: 0 0 var(--radius) var(--radius) !important;
+}
+
+.fc .fc-popover .fc-event,
+.fc .fc-popover .fc-event-main,
+.fc .fc-popover .fc-event span {
+  color: hsl(var(--card-foreground)) !important;
+}
