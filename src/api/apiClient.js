@@ -104,6 +104,20 @@ export const apiClient = {
     request(`/api/revenue?client_id=${client_id}&year=${year}&month=${month}`),
   lockRevenueMonth: (body) => request('/api/revenue/snapshots', { method: 'POST', body }),
   unlockRevenueSnapshot: (id) => request(`/api/revenue/snapshots/${id}`, { method: 'DELETE' }),
+  // team payouts (Phase 2 B — admin/operations)
+  getPayoutModel: (clientId) => request(`/api/clients/${clientId}/payout-model`),
+  putPayoutModel: (clientId, body) => request(`/api/clients/${clientId}/payout-model`, { method: 'PUT', body }),
+  listPendingPayouts: (clientId) =>
+    request(`/api/team-payouts/pending${clientId ? `?client_id=${clientId}` : ''}`),
+  listTeamPayouts: ({ client_id, status } = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries({ client_id, status }).filter(([, v]) => v !== null && v !== undefined && v !== '')
+    ).toString();
+    return request(`/api/team-payouts${qs ? `?${qs}` : ''}`);
+  },
+  approvePayout: (appointment_id) => request('/api/team-payouts', { method: 'POST', body: { appointment_id } }),
+  markPayoutPaid: (id) => request(`/api/team-payouts/${id}/paid`, { method: 'PATCH' }),
+  revokePayout: (id) => request(`/api/team-payouts/${id}`, { method: 'DELETE' }),
   // unavailability blocks
   listUnavailability: ({ client_id, from, to }) => {
     const qs = new URLSearchParams(
