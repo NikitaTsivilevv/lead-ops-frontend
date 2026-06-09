@@ -118,6 +118,7 @@ export const apiClient = {
   },
   approvePayout: (appointment_id) => request('/api/team-payouts', { method: 'POST', body: { appointment_id } }),
   markPayoutPaid: (id) => request(`/api/team-payouts/${id}/paid`, { method: 'PATCH' }),
+  unpayPayout: (id) => request(`/api/team-payouts/${id}/unpay`, { method: 'PATCH' }),
   revokePayout: (id) => request(`/api/team-payouts/${id}`, { method: 'DELETE' }),
   // unavailability blocks
   listUnavailability: ({ client_id, from, to }) => {
