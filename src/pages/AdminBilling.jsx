@@ -11,13 +11,20 @@ import { useAuth } from '@/lib/LeadOpsAuthContext';
 const fmt = (cents) => `$${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+// Human-readable billing model label for an existing rate version.
+const modelLabel = (v) => {
+  if (v.combine_mode === 'max') return 'Hybrid';
+  if (v.per_event_trigger != null) return v.sale_percentage != null ? 'Per-event + Sale %' : 'Per-event';
+  return 'Sale %';
+};
+
 export default function AdminBilling() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const qc = useQueryClient();
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => apiClient.listClients() });
   const [clientId, setClientId] = useState('');
-  const [form, setForm] = useState({ effective_from: todayISO(), per_event_trigger: 'show', per_event_amount: '', sale_percentage: '', combine_mode: 'single' });
+  const [form, setForm] = useState({ effective_from: todayISO(), billing_model: 'per_event', per_event_trigger: 'show', per_event_amount: '', sale_percentage: '' });
   const [billDate, setBillDate] = useState(todayISO());
 
   const modelQ = useQuery({
@@ -41,13 +48,18 @@ export default function AdminBilling() {
   const onErr = (err) => toast.error(err?.payload?.message || err?.payload?.error || err.message || 'Failed');
 
   const saveMut = useMutation({
-    mutationFn: () => apiClient.putBillingModel(clientId, {
-      effective_from: form.effective_from,
-      per_event_trigger: form.per_event_amount ? form.per_event_trigger : null,
-      per_event_amount_cents: form.per_event_amount ? Math.round(Number(form.per_event_amount) * 100) : null,
-      sale_percentage: form.sale_percentage ? Number(form.sale_percentage) : null,
-      combine_mode: form.combine_mode,
-    }),
+    mutationFn: () => {
+      const m = form.billing_model;
+      const usePerEvent = (m === 'per_event' || m === 'hybrid') && form.per_event_amount;
+      const useSale = (m === 'sale' || m === 'hybrid') && form.sale_percentage;
+      return apiClient.putBillingModel(clientId, {
+        effective_from: form.effective_from,
+        per_event_trigger: usePerEvent ? form.per_event_trigger : null,
+        per_event_amount_cents: usePerEvent ? Math.round(Number(form.per_event_amount) * 100) : null,
+        sale_percentage: useSale ? Number(form.sale_percentage) : null,
+        combine_mode: m === 'hybrid' ? 'max' : 'single',
+      });
+    },
     onSuccess: () => { invalidate(); toast.success('Rate version saved'); },
     onError: onErr,
   });
@@ -90,17 +102,17 @@ export default function AdminBilling() {
             <CardContent className="space-y-4">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-muted-foreground">
-                  <th className="py-1">Effective from</th><th>Trigger</th><th>Amount</th><th>Sale %</th><th>Combine</th><th></th>
+                  <th className="py-1">Effective from</th><th>Model</th><th>Trigger</th><th>Amount</th><th>Sale %</th><th></th>
                 </tr></thead>
                 <tbody>
                   {versions.length === 0 && <tr><td colSpan={6} className="py-2 text-muted-foreground">No rate versions yet.</td></tr>}
                   {versions.map((v) => (
                     <tr key={v.id} className="border-t">
                       <td className="py-1">{v.effective_from}</td>
+                      <td>{modelLabel(v)}</td>
                       <td>{v.per_event_trigger || '—'}</td>
                       <td>{v.per_event_amount_cents != null ? fmt(v.per_event_amount_cents) : '—'}</td>
                       <td>{v.sale_percentage != null ? `${v.sale_percentage}%` : '—'}</td>
-                      <td>{v.combine_mode}</td>
                       <td className="text-right">
                         {isAdmin && <Button variant="ghost" size="sm" onClick={() => delVersionMut.mutate(v.id)}>Delete</Button>}
                       </td>
@@ -116,32 +128,39 @@ export default function AdminBilling() {
                     <Input type="date" value={form.effective_from} onChange={(e) => setForm((f) => ({ ...f, effective_from: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Per-event trigger</Label>
-                    <select className="border rounded h-9 px-2 text-sm w-full" value={form.per_event_trigger}
-                      onChange={(e) => setForm((f) => ({ ...f, per_event_trigger: e.target.value }))}>
-                      <option value="show">Pay per show</option>
-                      <option value="booked">Pay per booked</option>
-                      <option value="qualified">Pay per qualified</option>
+                    <Label>Billing model</Label>
+                    <select className="border rounded h-9 px-2 text-sm w-full" value={form.billing_model}
+                      onChange={(e) => setForm((f) => ({ ...f, billing_model: e.target.value }))}>
+                      <option value="per_event">Per-event only</option>
+                      <option value="sale">Sale % only</option>
+                      <option value="hybrid">Hybrid (whichever greater)</option>
                     </select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Per-event amount ($)</Label>
-                    <Input type="number" value={form.per_event_amount} placeholder="400"
-                      onChange={(e) => setForm((f) => ({ ...f, per_event_amount: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Sale share (%)</Label>
-                    <Input type="number" value={form.sale_percentage} placeholder="10"
-                      onChange={(e) => setForm((f) => ({ ...f, sale_percentage: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Combine</Label>
-                    <select className="border rounded h-9 px-2 text-sm w-full" value={form.combine_mode}
-                      onChange={(e) => setForm((f) => ({ ...f, combine_mode: e.target.value }))}>
-                      <option value="single">Single (one side)</option>
-                      <option value="max">Whichever greater (max)</option>
-                    </select>
-                  </div>
+                  {form.billing_model !== 'sale' && (
+                    <div className="space-y-1.5">
+                      <Label>Per-event trigger</Label>
+                      <select className="border rounded h-9 px-2 text-sm w-full" value={form.per_event_trigger}
+                        onChange={(e) => setForm((f) => ({ ...f, per_event_trigger: e.target.value }))}>
+                        <option value="show">Pay per show</option>
+                        <option value="booked">Pay per booked</option>
+                        <option value="qualified">Pay per qualified</option>
+                      </select>
+                    </div>
+                  )}
+                  {form.billing_model !== 'sale' && (
+                    <div className="space-y-1.5">
+                      <Label>Per-event amount ($)</Label>
+                      <Input type="number" value={form.per_event_amount} placeholder="400"
+                        onChange={(e) => setForm((f) => ({ ...f, per_event_amount: e.target.value }))} />
+                    </div>
+                  )}
+                  {form.billing_model !== 'per_event' && (
+                    <div className="space-y-1.5">
+                      <Label>Sale share (%)</Label>
+                      <Input type="number" value={form.sale_percentage} placeholder="10"
+                        onChange={(e) => setForm((f) => ({ ...f, sale_percentage: e.target.value }))} />
+                    </div>
+                  )}
                   <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
                     {saveMut.isPending ? 'Saving…' : 'Add / update rate version'}
                   </Button>
