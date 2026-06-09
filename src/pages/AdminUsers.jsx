@@ -9,7 +9,7 @@ import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { roleLabel } from '@/lib/roles';
 
-const ROLES = ['admin', 'operations', 'confirmation', 'client', 'caller', 'qa'];
+const ROLES = ['admin', 'operations', 'call_center_admin', 'confirmation', 'client', 'caller', 'qa'];
 const NEEDS_CLIENT = (role) => role === 'client';
 
 export default function AdminUsers() {

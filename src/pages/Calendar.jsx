@@ -202,12 +202,12 @@ export default function Calendar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const isAdminOps = user && (user.role === 'admin' || user.role === 'operations');
+  const isAdminOps = user && ['admin', 'operations', 'call_center_admin'].includes(user.role);
   const isConfirmation = user?.role === 'confirmation';
   const showClientDropdown = isAdminOps || isConfirmation;
 
   const showEditAvailability =
-    user && (user.role === 'admin' || user.role === 'operations' || user.role === 'client');
+    user && (user.role === 'admin' || user.role === 'operations' || user.role === 'call_center_admin' || user.role === 'client');
 
   const [view, setView] = useState('table'); // 'table' | 'calendar'
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -980,7 +980,7 @@ export default function Calendar() {
                       )}
 
                     {selectedAppt.recording_url &&
-                      ['admin', 'operations', 'confirmation', 'qa'].includes(user?.role) && (
+                      ['admin', 'operations', 'confirmation', 'qa', 'call_center_admin'].includes(user?.role) && (
                         <ModalRow label="Recording">
                           <a
                             href={selectedAppt.recording_url}

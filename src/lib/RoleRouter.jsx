@@ -8,6 +8,7 @@ const ROLE_HOME = {
   confirmation:  '/confirmation',
   operations:    '/leads',
   admin:         '/leads',
+  call_center_admin: '/leads',
   client:        '/leads',
   qa:            '/leads',
 };

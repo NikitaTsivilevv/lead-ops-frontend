@@ -31,7 +31,7 @@ export default function AvailabilityEditor() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const isAdminOps = ['admin', 'operations'].includes(user?.role);
+  const isAdminOps = ['admin', 'operations', 'call_center_admin'].includes(user?.role);
   const [clientId, setClientId] = useState('1');
   const [clientOptions, setClientOptions] = useState([]);
   useEffect(() => {
