@@ -9,7 +9,8 @@ import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 
 const fmt = (cents) => `$${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// Today's date in America/New_York (en-CA formats as YYYY-MM-DD) — matches the backend's ET bucketing.
+const todayISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
 // Human-readable billing model label for an existing rate version.
 const modelLabel = (v) => {

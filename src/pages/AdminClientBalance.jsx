@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { apiClient } from '@/api/apiClient';
 
 const fmt = (cents) => `$${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-const today = () => new Date().toISOString().slice(0, 10);
+// Today's date in America/New_York (en-CA formats as YYYY-MM-DD) — matches the backend's ET bucketing.
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
 export default function AdminClientBalance() {
   const qc = useQueryClient();
