@@ -120,6 +120,17 @@ export const apiClient = {
   markPayoutPaid: (id) => request(`/api/team-payouts/${id}/paid`, { method: 'PATCH' }),
   unpayPayout: (id) => request(`/api/team-payouts/${id}/unpay`, { method: 'PATCH' }),
   revokePayout: (id) => request(`/api/team-payouts/${id}`, { method: 'DELETE' }),
+  // client balance (Phase 2 F — admin only)
+  getClientBalance: (clientId, asOf) =>
+    request(`/api/clients/${clientId}/balance${asOf ? `?as_of=${asOf}` : ''}`),
+  listClientPayments: (clientId) => request(`/api/clients/${clientId}/payments`),
+  addClientPayment: (clientId, body) => request(`/api/clients/${clientId}/payments`, { method: 'POST', body }),
+  deleteClientPayment: (clientId, paymentId) =>
+    request(`/api/clients/${clientId}/payments/${paymentId}`, { method: 'DELETE' }),
+  listClientPurchases: (clientId) => request(`/api/clients/${clientId}/appointment-purchases`),
+  addClientPurchase: (clientId, body) => request(`/api/clients/${clientId}/appointment-purchases`, { method: 'POST', body }),
+  deleteClientPurchase: (clientId, purchaseId) =>
+    request(`/api/clients/${clientId}/appointment-purchases/${purchaseId}`, { method: 'DELETE' }),
   // unavailability blocks
   listUnavailability: ({ client_id, from, to }) => {
     const qs = new URLSearchParams(
