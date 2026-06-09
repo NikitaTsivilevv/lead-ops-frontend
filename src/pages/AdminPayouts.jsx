@@ -65,6 +65,11 @@ export default function AdminPayouts() {
     onSuccess: () => { refresh(); toast.success('Marked paid'); },
     onError: (err) => toast.error(err?.payload?.message || err.message || 'Failed'),
   });
+  const unpayMut = useMutation({
+    mutationFn: (id) => apiClient.unpayPayout(id),
+    onSuccess: () => { refresh(); toast.success('Un-paid'); },
+    onError: (err) => toast.error(err?.payload?.message || err.message || 'Failed'),
+  });
   const revokeMut = useMutation({
     mutationFn: (id) => apiClient.revokePayout(id),
     onSuccess: () => { refresh(); toast.success('Revoked'); },
@@ -138,6 +143,12 @@ export default function AdminPayouts() {
                 {isAdmin && p.status === 'approved' && (
                   <span className="flex gap-2">
                     <Button size="sm" disabled={paidMut.isPending} onClick={() => paidMut.mutate(p.id)}>Mark paid</Button>
+                    <Button size="sm" variant="outline" disabled={revokeMut.isPending} onClick={() => revokeMut.mutate(p.id)}>Revoke</Button>
+                  </span>
+                )}
+                {isAdmin && p.status === 'paid' && (
+                  <span className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={unpayMut.isPending} onClick={() => unpayMut.mutate(p.id)}>Un-pay</Button>
                     <Button size="sm" variant="outline" disabled={revokeMut.isPending} onClick={() => revokeMut.mutate(p.id)}>Revoke</Button>
                   </span>
                 )}

@@ -137,10 +137,11 @@ export const apiClient = {
   // billing / revenue (Phase 2 A — admin/operations)
   getBillingModel: (clientId) => request(`/api/clients/${clientId}/billing-model`),
   putBillingModel: (clientId, body) => request(`/api/clients/${clientId}/billing-model`, { method: 'PUT', body }),
-  getRevenue: ({ client_id, year, month }) =>
-    request(`/api/revenue?client_id=${client_id}&year=${year}&month=${month}`),
-  lockRevenueMonth: (body) => request('/api/revenue/snapshots', { method: 'POST', body }),
-  unlockRevenueSnapshot: (id) => request(`/api/revenue/snapshots/${id}`, { method: 'DELETE' }),
+  deleteBillingModelVersion: (clientId, versionId) => request(`/api/clients/${clientId}/billing-model/versions/${versionId}`, { method: 'DELETE' }),
+  listBillingRuns: (clientId) => request(`/api/clients/${clientId}/billing-runs`),
+  recordBillingRun: (clientId, as_of_date) => request(`/api/clients/${clientId}/billing-runs`, { method: 'POST', body: { as_of_date } }),
+  deleteBillingRun: (clientId, runId) => request(`/api/clients/${clientId}/billing-runs/${runId}`, { method: 'DELETE' }),
+  getRevenue: (clientId, as_of) => request(`/api/revenue?client_id=${clientId}${as_of ? `&as_of=${as_of}` : ''}`),
   // team payouts (Phase 2 B — admin/operations)
   getPayoutModel: (clientId) => request(`/api/clients/${clientId}/payout-model`),
   putPayoutModel: (clientId, body) => request(`/api/clients/${clientId}/payout-model`, { method: 'PUT', body }),
@@ -154,7 +155,19 @@ export const apiClient = {
   },
   approvePayout: (appointment_id) => request('/api/team-payouts', { method: 'POST', body: { appointment_id } }),
   markPayoutPaid: (id) => request(`/api/team-payouts/${id}/paid`, { method: 'PATCH' }),
+  unpayPayout: (id) => request(`/api/team-payouts/${id}/unpay`, { method: 'PATCH' }),
   revokePayout: (id) => request(`/api/team-payouts/${id}`, { method: 'DELETE' }),
+  // client balance (Phase 2 F — admin only)
+  getClientBalance: (clientId, asOf) =>
+    request(`/api/clients/${clientId}/balance${asOf ? `?as_of=${asOf}` : ''}`),
+  listClientPayments: (clientId) => request(`/api/clients/${clientId}/payments`),
+  addClientPayment: (clientId, body) => request(`/api/clients/${clientId}/payments`, { method: 'POST', body }),
+  deleteClientPayment: (clientId, paymentId) =>
+    request(`/api/clients/${clientId}/payments/${paymentId}`, { method: 'DELETE' }),
+  listClientPurchases: (clientId) => request(`/api/clients/${clientId}/appointment-purchases`),
+  addClientPurchase: (clientId, body) => request(`/api/clients/${clientId}/appointment-purchases`, { method: 'POST', body }),
+  deleteClientPurchase: (clientId, purchaseId) =>
+    request(`/api/clients/${clientId}/appointment-purchases/${purchaseId}`, { method: 'DELETE' }),
   // unavailability blocks
   listUnavailability: ({ client_id, from, to }) => {
     const qs = new URLSearchParams(

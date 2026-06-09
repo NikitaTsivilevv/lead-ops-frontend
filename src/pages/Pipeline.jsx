@@ -199,7 +199,7 @@ const BOARD_SCROLL_KEY = 'pipeline_board_scroll';
 
 export default function Pipeline() {
   const { user } = useAuth();
-  const isAdmin = ['admin', 'operations'].includes(user?.role);
+  const isAdmin = ['admin', 'operations', 'call_center_admin'].includes(user?.role);
   const boardRef = useRef(null);
   const boardRestoredRef = useRef(false);
 

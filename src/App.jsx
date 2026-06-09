@@ -23,6 +23,7 @@ import AdminBilling from '@/pages/AdminBilling';
 import AdminPayouts from '@/pages/AdminPayouts';
 import AdminPayroll from '@/pages/AdminPayroll';
 import AdminExpenses from '@/pages/AdminExpenses';
+import AdminClientBalance from '@/pages/AdminClientBalance';
 import AcceptInvite from '@/pages/AcceptInvite';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
@@ -36,19 +37,21 @@ const AppRoutes = () => (
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/intake" element={<RequireAuth allow={['caller','admin','confirmation']}><Intake /></RequireAuth>} />
     <Route path="/my-leads" element={<RequireAuth allow={['caller','admin','confirmation']}><MyLeads /></RequireAuth>} />
-    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><Leads /></RequireAuth>} />
-    <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation']}><Confirmation /></RequireAuth>} />
-    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa']}><AppointmentDetail /></RequireAuth>} />
-    <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Pipeline /></RequireAuth>} />
-    <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client']}><Calendar /></RequireAuth>} />
-    <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client']}><AvailabilityEditor /></RequireAuth>} />
-    <Route path="/admin/callers" element={<RequireAuth allow={['admin']}><AdminCallers /></RequireAuth>} />
-    <Route path="/admin/clients" element={<RequireAuth allow={['admin']}><AdminClients /></RequireAuth>} />
+    <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa','call_center_admin']}><Leads /></RequireAuth>} />
+    <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation','call_center_admin']}><Confirmation /></RequireAuth>} />
+    <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa','call_center_admin']}><AppointmentDetail /></RequireAuth>} />
+    <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client','call_center_admin']}><Pipeline /></RequireAuth>} />
+    <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client','call_center_admin']}><Calendar /></RequireAuth>} />
+    <Route path="/calendar/availability" element={<RequireAuth allow={['admin','operations','client','call_center_admin']}><AvailabilityEditor /></RequireAuth>} />
+    <Route path="/admin/callers" element={<RequireAuth allow={['admin','call_center_admin']}><AdminCallers /></RequireAuth>} />
+    <Route path="/admin/clients" element={<RequireAuth allow={['admin','call_center_admin']}><AdminClients /></RequireAuth>} />
     <Route path="/admin/users" element={<RequireAuth allow={['admin']}><AdminUsers /></RequireAuth>} />
     <Route path="/admin/billing" element={<RequireAuth allow={['admin','operations']}><AdminBilling /></RequireAuth>} />
-    <Route path="/admin/payouts" element={<RequireAuth allow={['admin','operations']}><AdminPayouts /></RequireAuth>} />
     <Route path="/admin/payroll" element={<RequireAuth allow={['admin']}><AdminPayroll /></RequireAuth>} />
     <Route path="/admin/expenses" element={<RequireAuth allow={['admin','operations']}><AdminExpenses /></RequireAuth>} />
+    <Route path="/admin/payouts" element={<RequireAuth allow={['admin','operations','call_center_admin']}><AdminPayouts /></RequireAuth>} />
+    <Route path="/admin/client-balance" element={<RequireAuth allow={['admin']}><AdminClientBalance /></RequireAuth>} />
+
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
