@@ -100,10 +100,11 @@ export const apiClient = {
   // billing / revenue (Phase 2 A — admin/operations)
   getBillingModel: (clientId) => request(`/api/clients/${clientId}/billing-model`),
   putBillingModel: (clientId, body) => request(`/api/clients/${clientId}/billing-model`, { method: 'PUT', body }),
-  getRevenue: ({ client_id, year, month }) =>
-    request(`/api/revenue?client_id=${client_id}&year=${year}&month=${month}`),
-  lockRevenueMonth: (body) => request('/api/revenue/snapshots', { method: 'POST', body }),
-  unlockRevenueSnapshot: (id) => request(`/api/revenue/snapshots/${id}`, { method: 'DELETE' }),
+  deleteBillingModelVersion: (clientId, versionId) => request(`/api/clients/${clientId}/billing-model/versions/${versionId}`, { method: 'DELETE' }),
+  listBillingRuns: (clientId) => request(`/api/clients/${clientId}/billing-runs`),
+  recordBillingRun: (clientId, as_of_date) => request(`/api/clients/${clientId}/billing-runs`, { method: 'POST', body: { as_of_date } }),
+  deleteBillingRun: (clientId, runId) => request(`/api/clients/${clientId}/billing-runs/${runId}`, { method: 'DELETE' }),
+  getRevenue: (clientId, as_of) => request(`/api/revenue?client_id=${clientId}${as_of ? `&as_of=${as_of}` : ''}`),
   // team payouts (Phase 2 B — admin/operations)
   getPayoutModel: (clientId) => request(`/api/clients/${clientId}/payout-model`),
   putPayoutModel: (clientId, body) => request(`/api/clients/${clientId}/payout-model`, { method: 'PUT', body }),
