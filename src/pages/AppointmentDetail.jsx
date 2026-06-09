@@ -222,12 +222,12 @@ export default function AppointmentDetail() {
   }, []);
 
   const canEdit = user?.role !== 'client';
-  const canEditLeadInfo = ['admin', 'operations', 'confirmation', 'qa'].includes(user?.role);
+  const canEditLeadInfo = ['admin', 'operations', 'confirmation', 'qa', 'call_center_admin'].includes(user?.role);
   const [editingLead, setEditingLead] = useState(false);
   const [leadForm, setLeadForm] = useState(null);
   const [leadSaving, setLeadSaving] = useState(false);
-  const showPanels = ['admin', 'operations', 'confirmation'].includes(user?.role);
-  const showClientDecision = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
+  const showPanels = ['admin', 'operations', 'confirmation', 'call_center_admin'].includes(user?.role);
+  const showClientDecision = ['admin', 'operations', 'client', 'confirmation', 'call_center_admin'].includes(user?.role);
 
   const loadAppt = useCallback(async () => {
     setError('');
@@ -555,7 +555,7 @@ export default function AppointmentDetail() {
 
   const qualColor = QUAL_COLORS[appt.qualification?.toLowerCase()] || QUAL_COLORS.pending;
   const outcomeColor = OUTCOME_COLORS[appt.outcome?.toLowerCase()] || OUTCOME_COLORS.pending;
-  const showOutcome = ['admin', 'operations', 'client', 'confirmation'].includes(user?.role);
+  const showOutcome = ['admin', 'operations', 'client', 'confirmation', 'call_center_admin'].includes(user?.role);
   const apptPast = appt.appointment_at ? new Date(appt.appointment_at) < new Date() : false;
   const isRejected = appt.client_decision === 'rejected' || appt.client_decision === false;
 
@@ -692,7 +692,7 @@ export default function AppointmentDetail() {
                 )}
 
                 {/* Recording visibility toggle — staff only */}
-                {['admin', 'operations', 'confirmation', 'qa'].includes(user?.role) && (
+                {['admin', 'operations', 'confirmation', 'qa', 'call_center_admin'].includes(user?.role) && (
                   <InfoRow label="Share recording with client">
                     <div className="flex items-center gap-2">
                       <Switch
@@ -852,7 +852,7 @@ export default function AppointmentDetail() {
         </Card>
 
         {/* Reschedule panel — admin / operations / confirmation */}
-        {['admin', 'operations', 'confirmation'].includes(user?.role) && (
+        {['admin', 'operations', 'confirmation', 'call_center_admin'].includes(user?.role) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Change appointment time</CardTitle>
@@ -1272,7 +1272,7 @@ export default function AppointmentDetail() {
         )}
 
         {/* Redistribute panel */}
-        {['admin', 'operations', 'confirmation'].includes(user?.role) && (
+        {['admin', 'operations', 'confirmation', 'call_center_admin'].includes(user?.role) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Redistribute to another client</CardTitle>
