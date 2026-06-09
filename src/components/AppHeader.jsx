@@ -43,6 +43,7 @@ function NavLinks({ user, onClick }) {
           <NavLink to="/admin/users" className={linkClass} onClick={onClick}>Users</NavLink>
           <NavLink to="/admin/billing" className={linkClass} onClick={onClick}>Billing</NavLink>
           <NavLink to="/admin/payouts" className={linkClass} onClick={onClick}>Payouts</NavLink>
+          <NavLink to="/admin/client-balance" className={linkClass} onClick={onClick}>Client Balance</NavLink>
         </>
       )}
       {user.role === 'call_center_admin' && (

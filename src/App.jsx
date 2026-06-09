@@ -21,6 +21,7 @@ import AdminClients from '@/pages/AdminClients';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminBilling from '@/pages/AdminBilling';
 import AdminPayouts from '@/pages/AdminPayouts';
+import AdminClientBalance from '@/pages/AdminClientBalance';
 import AcceptInvite from '@/pages/AcceptInvite';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
@@ -45,6 +46,7 @@ const AppRoutes = () => (
     <Route path="/admin/users" element={<RequireAuth allow={['admin']}><AdminUsers /></RequireAuth>} />
     <Route path="/admin/billing" element={<RequireAuth allow={['admin','operations']}><AdminBilling /></RequireAuth>} />
     <Route path="/admin/payouts" element={<RequireAuth allow={['admin','operations','call_center_admin']}><AdminPayouts /></RequireAuth>} />
+    <Route path="/admin/client-balance" element={<RequireAuth allow={['admin']}><AdminClientBalance /></RequireAuth>} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>
 );
