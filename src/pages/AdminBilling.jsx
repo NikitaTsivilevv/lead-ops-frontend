@@ -25,8 +25,8 @@ export default function AdminBilling() {
     queryFn: () => apiClient.getBillingModel(clientId),
   });
   const revenueQ = useQuery({
-    queryKey: ['revenue', clientId], enabled: !!clientId,
-    queryFn: () => apiClient.getRevenue(clientId).then((d) => d.revenue),
+    queryKey: ['revenue', clientId, billDate], enabled: !!clientId,
+    queryFn: () => apiClient.getRevenue(clientId, billDate).then((d) => d.revenue),
   });
   const runsQ = useQuery({
     queryKey: ['billing-runs', clientId], enabled: !!clientId,
