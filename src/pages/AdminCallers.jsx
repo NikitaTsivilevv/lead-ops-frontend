@@ -8,14 +8,22 @@ import { toast } from 'sonner';
 import { apiClient } from '@/api/apiClient';
 import DataTable from '@/components/DataTable';
 import Searchbar from '@/components/Searchbar';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function AdminCallers() {
   const qc = useQueryClient();
   const agents = useQuery({ queryKey: ['agents'], queryFn: () => apiClient.listAgents() });
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => apiClient.listClients() });
+  const callerUsers = useQuery({ queryKey: ['caller-users'], queryFn: () => apiClient.listCallers() });
 
   const [form, setForm] = useState({ name: '', client_id: '', ext_id: '' });
   const [search, setSearch] = useState('');
+  const [callerSearch, setCallerSearch] = useState('');
+  const [retireTarget, setRetireTarget] = useState(null);
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -40,6 +48,19 @@ export default function AdminCallers() {
     onError: (err) => toast.error(err?.payload?.message || err.message || 'Failed'),
   });
 
+  const retireMut = useMutation({
+    mutationFn: (id) => apiClient.retireCaller(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['caller-users'] });
+      setRetireTarget(null);
+      toast.success('Caller retired');
+    },
+    onError: (err) => {
+      setRetireTarget(null);
+      toast.error(err?.payload?.error || err.message || 'Failed to retire');
+    },
+  });
+
   const clientLookup = Object.fromEntries(
     (clients.data?.clients || []).map((c) => [String(c.id), c])
   );
@@ -51,10 +72,110 @@ export default function AdminCallers() {
     { key: 'active', header: 'Active', cell: (a) => (a.active ? 'Yes' : 'No') },
   ];
 
+  const callerUserColumns = [
+    { key: 'caller_no', header: '#', cell: (u) => u.caller_no ? `Caller #${u.caller_no}` : '—' },
+    { key: 'full_name', header: 'Name', cell: (u) => u.full_name || '—' },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (u) => u.retired_at
+        ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Retired</span>
+        : u.active
+          ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">Active</span>
+          : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">Inactive</span>,
+    },
+    {
+      key: 'retired_at',
+      header: 'Retired',
+      cell: (u) => u.retired_at ? new Date(u.retired_at).toLocaleDateString() : '—',
+    },
+  ];
+
+  const filteredCallerUsers = (callerUsers.data?.callers || []).filter((u) => {
+    if (!callerSearch.trim()) return true;
+    const q = callerSearch.trim().toLowerCase();
+    return [u.full_name, u.caller_no ? `${u.caller_no}` : ''].some(
+      (v) => v && String(v).toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-[1100px] mx-auto space-y-6">
-        <h1 className="text-2xl font-semibold">Callers (agents)</h1>
+        <h1 className="text-2xl font-semibold">Callers</h1>
+
+        {/* Caller Accounts (Phase 2 E) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Caller accounts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Searchbar value={callerSearch} onChange={setCallerSearch} placeholder="Search by name or caller #…" />
+            {callerUsers.isLoading && <p className="text-muted-foreground">Loading…</p>}
+            {callerUsers.isError && <p className="text-destructive">Failed to load caller accounts</p>}
+            {!callerUsers.isLoading && !callerUsers.isError && (
+              <DataTable
+                columns={callerUserColumns}
+                rows={filteredCallerUsers}
+                emptyMessage="No caller accounts."
+                actions={(u) =>
+                  !u.retired_at && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRetireTarget(u)}
+                    >
+                      Retire
+                    </Button>
+                  )
+                }
+                mobileCard={(u) => (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{u.full_name}</p>
+                        {u.caller_no && <p className="text-xs text-muted-foreground">Caller #{u.caller_no}</p>}
+                      </div>
+                      {u.retired_at
+                        ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">Retired</span>
+                        : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800 shrink-0">Active</span>
+                      }
+                    </div>
+                    {u.retired_at && <p className="text-xs text-muted-foreground">Retired {new Date(u.retired_at).toLocaleDateString()}</p>}
+                    {!u.retired_at && (
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setRetireTarget(u)}>
+                        Retire
+                      </Button>
+                    )}
+                  </div>
+                )}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <AlertDialog open={!!retireTarget} onOpenChange={(open) => { if (!open) setRetireTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Retire {retireTarget?.full_name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This marks the caller as retired and disables their account. Their Caller #{retireTarget?.caller_no} will never be reused. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={retireMut.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => retireMut.mutate(retireTarget.id)}
+                disabled={retireMut.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {retireMut.isPending ? 'Retiring…' : 'Retire caller'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <h2 className="text-lg font-semibold">Dialer agents</h2>
 
         <Card>
           <CardHeader>

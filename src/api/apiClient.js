@@ -91,12 +91,49 @@ export const apiClient = {
     request(`/api/agents${clientId ? `?client_id=${clientId}` : ''}`),
   createAgent: (body) => request('/api/agents', { method: 'POST', body }),
   updateAgent: (id, body) => request(`/api/agents/${id}`, { method: 'PATCH', body }),
-  // callers (for intake dropdown)
+  // callers (for intake dropdown + admin management)
   listCallers: () => request('/api/callers'),
+  retireCaller: (id) => request(`/api/auth/users/${id}`, { method: 'PATCH', body: { action: 'retire' } }),
+  // payroll profiles + assignments (Phase 2 C1)
+  getPayrollProfile: (callerId) => request(`/api/callers/${callerId}/payroll-profile`),
+  putPayrollProfile: (callerId, body) => request(`/api/callers/${callerId}/payroll-profile`, { method: 'PUT', body }),
+  listCallerAssignments: (callerId) =>
+    request(`/api/caller-assignments${callerId ? `?caller_id=${callerId}` : ''}`),
+  createCallerAssignment: (body) => request('/api/caller-assignments', { method: 'POST', body }),
+  closeCallerAssignment: (id, end_date) => request(`/api/caller-assignments/${id}`, { method: 'PATCH', body: { end_date } }),
+  // attendance + cost (Phase 2 C2)
+  listCallerAttendance: ({ caller_id, from, to }) =>
+    request(`/api/caller-attendance?caller_id=${caller_id}&from=${from}&to=${to}`),
+  recordAttendance: (body) => request('/api/caller-attendance', { method: 'POST', body }),
+  getPayrollCost: ({ client_id, from, to }) => {
+    const qs = new URLSearchParams(
+      Object.entries({ client_id, from, to }).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return request(`/api/payroll/cost?${qs}`);
+  },
+  getCallerCredit: ({ caller_id, year, month }) =>
+    request(`/api/payroll/caller-credit?caller_id=${caller_id}&year=${year}&month=${month}`),
   // clients
   listClients: () => request('/api/clients'),
   createClient: (body) => request('/api/clients', { method: 'POST', body }),
   updateClient: (id, body) => request(`/api/clients/${id}`, { method: 'PATCH', body }),
+  // managerial expenses (Phase 2 C3)
+  listManagerialExpenses: () => request('/api/managerial-expenses'),
+  getManagerialExpense: (year, month) => request(`/api/managerial-expenses?year=${year}&month=${month}`),
+  upsertManagerialExpense: (body) => request('/api/managerial-expenses', { method: 'POST', body }),
+  updateManagerialExpense: (id, body) => request(`/api/managerial-expenses/${id}`, { method: 'PUT', body }),
+  // campaign expenses (Phase 2 D)
+  listCampaignExpenses: ({ client_id, from, to, category } = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries({ client_id, from, to, category }).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return request(`/api/campaign-expenses${qs ? `?${qs}` : ''}`);
+  },
+  getCampaignExpenseSummary: ({ from, to }) =>
+    request(`/api/campaign-expenses/summary?from=${from}&to=${to}`),
+  createCampaignExpense: (body) => request('/api/campaign-expenses', { method: 'POST', body }),
+  updateCampaignExpense: (id, body) => request(`/api/campaign-expenses/${id}`, { method: 'PATCH', body }),
+  deleteCampaignExpense: (id) => request(`/api/campaign-expenses/${id}`, { method: 'DELETE' }),
   // billing / revenue (Phase 2 A — admin/operations)
   getBillingModel: (clientId) => request(`/api/clients/${clientId}/billing-model`),
   putBillingModel: (clientId, body) => request(`/api/clients/${clientId}/billing-model`, { method: 'PUT', body }),

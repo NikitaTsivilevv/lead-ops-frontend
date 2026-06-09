@@ -43,6 +43,10 @@ function NavLinks({ user, onClick }) {
           <NavLink to="/admin/users" className={linkClass} onClick={onClick}>Users</NavLink>
           <NavLink to="/admin/billing" className={linkClass} onClick={onClick}>Billing</NavLink>
           <NavLink to="/admin/payouts" className={linkClass} onClick={onClick}>Payouts</NavLink>
+
+          <NavLink to="/admin/payroll" className={linkClass} onClick={onClick}>Payroll</NavLink>
+          <NavLink to="/admin/expenses" className={linkClass} onClick={onClick}>Expenses</NavLink>
+
           <NavLink to="/admin/client-balance" className={linkClass} onClick={onClick}>Client Balance</NavLink>
         </>
       )}
@@ -51,6 +55,7 @@ function NavLinks({ user, onClick }) {
           <NavLink to="/admin/clients" className={linkClass} onClick={onClick}>Clients</NavLink>
           <NavLink to="/admin/callers" className={linkClass} onClick={onClick}>Callers</NavLink>
           <NavLink to="/admin/payouts" className={linkClass} onClick={onClick}>Payouts</NavLink>
+
         </>
       )}
     </>
