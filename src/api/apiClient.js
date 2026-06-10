@@ -157,6 +157,12 @@ export const apiClient = {
   markPayoutPaid: (id) => request(`/api/team-payouts/${id}/paid`, { method: 'PATCH' }),
   unpayPayout: (id) => request(`/api/team-payouts/${id}/unpay`, { method: 'PATCH' }),
   revokePayout: (id) => request(`/api/team-payouts/${id}`, { method: 'DELETE' }),
+  // P&L dashboard (Phase 2 G — admin only)
+  getPnl: ({ from, to, granularity = 'day', client_id } = {}) => {
+    const p = new URLSearchParams({ from, to, granularity });
+    if (client_id) p.set('client_id', client_id);
+    return request(`/api/pnl?${p.toString()}`);
+  },
   // client balance (Phase 2 F — admin only)
   getClientBalance: (clientId, asOf) =>
     request(`/api/clients/${clientId}/balance${asOf ? `?as_of=${asOf}` : ''}`),
