@@ -80,13 +80,13 @@ export default function AppHeader() {
 
   return (
     <header className="border-b bg-background sticky top-0 z-30 bg-white shadow-md">
-      <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center gap-3">
+      <div className="max-w-full mx-auto px-4 py-3 flex items-center gap-3">
         <Link to="/" className="font-semibold tracking-tight hover:opacity-80 shrink-0">
           lead-ops
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-0.5 ml-2 flex-1">
+        <nav className="hidden md:flex flex-wrap justify-center items-center gap-0.5 ml-2 flex-1">
           <NavLinks user={user} />
         </nav>
 
