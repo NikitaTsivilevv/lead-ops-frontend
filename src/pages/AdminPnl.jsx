@@ -27,7 +27,7 @@ export default function AdminPnl() {
   const rows = pnl.data?.rows || [];
   const totals = pnl.data?.totals;
   const list = clients.data?.clients || [];
-  const chartData = rows.map((r) => ({ label: `${r.client_name} ${r.period}`, profit: r.profit_cents / 100 }));
+  const chartData = rows.map((r) => ({ label: `${r.client_name} ${r.period}`, profit: (r.profit_cents ?? 0) / 100 }));
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
