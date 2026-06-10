@@ -129,9 +129,11 @@ export default function AdminExpenses() {
                 Operational overhead (no client)
               </label>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
-              {!isOpsOverhead ? (
-                <div className="space-y-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col md:flex-row gap-3">
+            
+              <div className='flex flex-col md:flex-row flex-wrap gap-4'>
+                  {!isOpsOverhead ? (
+                <div className="space-y-1 ">
                   <Label>Client *</Label>
                   <select className="h-9 rounded-md border bg-background px-2 text-sm w-full"
                     value={form.client_id} onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>
@@ -140,37 +142,40 @@ export default function AdminExpenses() {
                   </select>
                 </div>
               ) : (
-                <div className="space-y-1 col-span-2 sm:col-span-1">
+                <div className="space-y-1">
                   <Label>Group *</Label>
                   <Input value={form.operational_group} placeholder="e.g. Ops"
                     onChange={(e) => setForm((f) => ({ ...f, operational_group: e.target.value }))} />
                 </div>
               )}
-              <div className="space-y-1">
+              <div className="space-y-1 w-full md:w-auto">
                 <Label>Category *</Label>
                 <select className="h-9 rounded-md border bg-background px-2 text-sm w-full"
                   value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 w-full md:w-auto">
                 <Label>Amount ($) *</Label>
                 <Input type="number" min="0.01" step="0.01" value={form.amount}
                   onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 w-full md:w-auto">
                 <Label>Date *</Label>
                 <Input type="date" value={form.expense_date}
                   onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 w-full md:w-auto">
                 <Label>Note</Label>
                 <Input value={form.note} placeholder="Optional"
                   onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
               </div>
-              <Button disabled={!canSubmit || createMut.isPending} onClick={() => createMut.mutate()}>
+                  <div className="space-y-1 w-full md:w-auto self-end">
+              <Button className="w-full "disabled={!canSubmit || createMut.isPending} onClick={() => createMut.mutate()}>
                 {createMut.isPending ? 'Adding…' : 'Add'}
               </Button>
+              </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -179,26 +184,26 @@ export default function AdminExpenses() {
         <Card>
           <CardHeader><CardTitle className="text-base">Expense list</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-3 items-end">
+            <div className="flex flex-col md:flex-row flex-wrap gap-3 md:items-end">
               <div className="space-y-1">
                 <Label>Client</Label>
-                <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[140px]"
+                <select className="h-9 rounded-md border bg-background px-2 text-sm w-full md:min-w-[140px]"
                   value={filterClient} onChange={(e) => setFilterClient(e.target.value)}>
                   <option value="">All</option>
                   {(clients.data?.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 ">
                 <Label>From</Label>
-                <Input type="date" value={filterFrom} className="w-36"
+                <Input type="date" value={filterFrom} className="w-[180px] md:w-36"
                   onChange={(e) => setFilterFrom(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label>To</Label>
-                <Input type="date" value={filterTo} className="w-36"
+                <Input type="date" value={filterTo} className="w-[180px] md:w-36"
                   onChange={(e) => setFilterTo(e.target.value)} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-1">
                 <Label>Category</Label>
                 <select className="h-9 rounded-md border bg-background px-2 text-sm"
                   value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>

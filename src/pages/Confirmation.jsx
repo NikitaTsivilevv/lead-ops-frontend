@@ -217,7 +217,8 @@ export default function Confirmation() {
             )}
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+          <div className="md:overflow-x-auto xl:overflow-x-visible">
+          <div className="grid grid-cols-1 md:grid-cols-7 xl:grid-cols-7 md:min-w-[900px] xl:min-w-0 gap-3">
             {COLS.map(([key, label]) => (
               <div key={key} className="space-y-3">
                 <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
@@ -233,6 +234,7 @@ export default function Confirmation() {
                 </div>
               </div>
             ))}
+          </div>
           </div>
         )}
       </div>

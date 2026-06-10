@@ -105,6 +105,8 @@ export const apiClient = {
   listCallerAttendance: ({ caller_id, from, to }) =>
     request(`/api/caller-attendance?caller_id=${caller_id}&from=${from}&to=${to}`),
   recordAttendance: (body) => request('/api/caller-attendance', { method: 'POST', body }),
+  deleteAttendance: ({ caller_id, work_date }) =>
+    request(`/api/caller-attendance?caller_id=${caller_id}&work_date=${work_date}`, { method: 'DELETE' }),
   getPayrollCost: ({ client_id, from, to }) => {
     const qs = new URLSearchParams(
       Object.entries({ client_id, from, to }).filter(([, v]) => v != null && v !== '')
