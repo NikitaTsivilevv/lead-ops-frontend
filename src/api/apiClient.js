@@ -1,4 +1,5 @@
 const API_BASE = (typeof window !== 'undefined' && window.__LEAD_OPS_API_BASE)
+  || import.meta.env.VITE_API_BASE_URL
   || (import.meta.env.DEV ? '' : 'https://lead-ops-api-h67zx.ondigitalocean.app');
 
 const TOKEN_KEY = 'leadops_jwt';
