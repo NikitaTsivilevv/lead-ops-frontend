@@ -36,8 +36,8 @@ export default function Conversations() {
     .filter((c) => (unreadOnly ? c.unread : true));
 
   return (
-    <div className="min-h-screen bg-background py-6 px-4">
-      <div className="max-w-3xl mx-auto space-y-4">
+    <div className="min-h-screen bg-background py-8 px-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">Conversations</h1>
           <Button

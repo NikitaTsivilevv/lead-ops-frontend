@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu, Bell } from 'lucide-react';
 import { roleLabel } from '@/lib/roles';
+import { canUseComms } from '@/lib/commsRoles';
 import { apiClient } from '@/api/apiClient';
 
 function NavLinks({ user, onClick }) {
@@ -30,7 +31,7 @@ function NavLinks({ user, onClick }) {
       {['admin', 'operations', 'confirmation', 'call_center_admin'].includes(user.role) && (
         <NavLink to="/confirmation" className={linkClass} onClick={onClick}>Confirmation</NavLink>
       )}
-      {['admin', 'operations', 'confirmation', 'call_center_admin', 'client'].includes(user.role) && (
+      {canUseComms(user.role) && (
         <NavLink to="/conversations" className={linkClass} onClick={onClick}>Conversations</NavLink>
       )}
       {['caller','confirmation'].includes(user.role) && (

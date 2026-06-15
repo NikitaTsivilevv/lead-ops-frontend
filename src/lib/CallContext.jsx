@@ -7,14 +7,17 @@ import { createContext, useContext } from 'react';
 // The VOICE track (Alex) OWNS the real implementation of this file: a CallProvider
 // that holds the Twilio Device and a `useCall()` that returns
 //   (phone, appointmentId) => void   // place a browser call
-// When the Voice track lands, it REPLACES this stub. Contract to keep stable:
-//   - export `useCall()` returning either a `(phone, appointmentId) => void` fn or `null`.
-//   - CommToggle treats `null` as "calling not available yet" (button disabled).
+// The Voice track's CallWidget provides the real value. Contract:
+//   - useCall() returns { call, ready }.
+//     call:  (phone, appointmentId) => void   (places a browser call; null for non-comms roles)
+//     ready: boolean                          (Twilio Device registered + usable)
+//   - CommToggle disables the call button while `ready` is false.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CallContext = createContext(null);
+// Safe default when no CallWidget is mounted (e.g. tests): calling not available.
+const CallContext = createContext({ call: null, ready: false });
 
-// Returns a `(phone, appointmentId) => void` fn when a CallProvider is mounted, else null.
+// Returns { call, ready }.
 export function useCall() {
   return useContext(CallContext);
 }

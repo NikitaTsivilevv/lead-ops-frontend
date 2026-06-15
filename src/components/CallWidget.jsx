@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Device } from '@twilio/voice-sdk';
 import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
@@ -6,18 +6,17 @@ import CallContext from '@/lib/CallContext';
 import { Button } from '@/components/ui/button';
 import { Phone, PhoneOff } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Roles permitted to use in-app comms (mirrors backend COMMS_ROLES).
-const COMMS_ROLES = ['admin', 'operations', 'confirmation', 'call_center_admin', 'client'];
+import { canUseComms } from '@/lib/commsRoles';
 
 // Global softphone: holds the Twilio Device, sends presence heartbeats, exposes a
 // click-to-call function via CallContext, and pops up inbound calls (answer/reject).
 export default function CallWidget({ children }) {
   const { user } = useAuth();
   const deviceRef = useRef(null);
+  const [ready, setReady] = useState(false);       // Device registered + usable
   const [active, setActive] = useState(null);     // current outbound/answered Call
   const [incoming, setIncoming] = useState(null);  // ringing inbound Call
-  const enabled = !!user && COMMS_ROLES.includes(user.role);
+  const enabled = !!user && canUseComms(user.role);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -28,17 +27,22 @@ export default function CallWidget({ children }) {
       try {
         const { token } = await apiClient.getVoiceToken();
         device = new Device(token, { logLevel: 'error' });
-        device.on('registered', () => apiClient.setPresence(true).catch(() => {}));
+        // Make the device available immediately; `ready` gates usability so a click
+        // before registration can't race ahead of a usable device.
+        deviceRef.current = device;
+        device.on('registered', () => { setReady(true); apiClient.setPresence(true).catch(() => {}); });
+        device.on('unregistered', () => setReady(false));
+        device.on('error', () => setReady(false));
         device.on('incoming', (call) => setIncoming(call));
         device.on('tokenWillExpire', async () => {
           try { device.updateToken((await apiClient.getVoiceToken()).token); } catch {}
         });
         await device.register();
         if (destroyed) { device.destroy(); return; }
-        deviceRef.current = device;
         hb = setInterval(() => apiClient.setPresence(true).catch(() => {}), 30_000);
       } catch {
-        toast.error('Calling unavailable');
+        setReady(false);
+        toast.error('Calling unavailable — telephony is not configured.');
       }
     })();
     return () => {
@@ -46,13 +50,17 @@ export default function CallWidget({ children }) {
       clearInterval(hb);
       apiClient.setPresence(false).catch(() => {});
       deviceRef.current = null;
+      setReady(false);
       device?.destroy();
     };
   }, [enabled]);
 
   const call = useCallback((phone, appointmentId) => {
     const device = deviceRef.current;
-    if (!device || !phone) return;
+    if (!device || !phone) {
+      toast.error("Calling isn't available right now.");
+      return;
+    }
     device
       .connect({ params: { To: phone, appointmentId: String(appointmentId ?? '') } })
       .then((c) => {
@@ -62,6 +70,12 @@ export default function CallWidget({ children }) {
       })
       .catch(() => toast.error('Could not place call'));
   }, []);
+
+  // Contract consumed by CommToggle via useCall(): { call, ready }.
+  const ctxValue = useMemo(
+    () => ({ call: enabled ? call : null, ready: enabled && ready }),
+    [enabled, call, ready],
+  );
 
   const answer = () => {
     if (!incoming) return;
@@ -73,7 +87,7 @@ export default function CallWidget({ children }) {
   const reject = () => { incoming?.reject(); setIncoming(null); };
 
   return (
-    <CallContext.Provider value={enabled ? call : null}>
+    <CallContext.Provider value={ctxValue}>
       {children}
       {enabled && (active || incoming) && (
         <div className="fixed bottom-4 right-4 z-50 w-72 rounded-lg border bg-background p-3 shadow-lg">
