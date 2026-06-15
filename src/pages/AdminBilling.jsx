@@ -83,8 +83,8 @@ export default function AdminBilling() {
   const runs = runsQ.data;
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1000px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Billing &amp; Revenue</h1>
 
         <Card>

@@ -67,8 +67,8 @@ export default function AdminUsers() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-6 px-4">
-      <div className="max-w-none mx-auto space-y-4">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Users</h1>
           <Button size="sm" variant="outline" onClick={load} className="h-9 gap-1.5"><RefreshCw className="w-3.5 h-3.5" />Refresh</Button>

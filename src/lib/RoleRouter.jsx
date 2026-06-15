@@ -28,5 +28,12 @@ export function RequireAuth({ allow, children }) {
   if (allow && !allow.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
-  return <><AppHeader />{children}</>;
+  return (
+    <div className="min-h-screen md:flex">
+      <AppHeader />
+      <main className="flex-1 min-w-0">
+        {children}
+      </main>
+    </div>
+  );
 }

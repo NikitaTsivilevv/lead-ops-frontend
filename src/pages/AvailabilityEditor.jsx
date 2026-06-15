@@ -310,8 +310,8 @@ export default function AvailabilityEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 pb-10">
-      <div className="max-w-[900px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <div>
           <button
             onClick={() => navigate('/calendar')}
@@ -320,7 +320,7 @@ export default function AvailabilityEditor() {
             Back to calendar
           </button>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold text-foreground">Edit availability</h1>
+            <h1 className="text-2xl font-semibold">Edit availability</h1>
             {isAdminOps && (
               <Select value={clientId} onValueChange={setClientId}>
                 <SelectTrigger className="w-56 h-9">
