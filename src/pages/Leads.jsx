@@ -11,6 +11,7 @@ import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { leadDisplayName } from '@/lib/leadName';
 import DataTable from '@/components/DataTable';
 import Searchbar from '@/components/Searchbar';
+import CommToggle from '@/components/CommToggle';
 
 const ACTION_REASON_LABELS = {
   pending_outcome: 'Pending outcome',
@@ -149,6 +150,13 @@ export default function Leads() {
     queryFn: () => apiClient.getActionNeeded(),
     enabled: isClient,
   });
+  const { data: convData } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.listConversations(),
+  });
+  const unreadSet = new Set(
+    (convData?.conversations || []).filter((c) => c.unread).map((c) => Number(c.appointment_id)),
+  );
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -221,6 +229,15 @@ export default function Leads() {
       header: 'Prospect',
       sortable: true,
       cell: (row) => <span className="font-medium text-sm">{leadDisplayName(row)}</span>,
+    },
+    {
+      key: 'comms',
+      header: 'Contact',
+      cell: (row) => (
+        <span onClick={(e) => e.stopPropagation()}>
+          <CommToggle lead={row} unread={unreadSet.has(Number(row.id))} />
+        </span>
+      ),
     },
     {
       key: 'address',
@@ -437,6 +454,9 @@ export default function Leads() {
                         <StatusBadge value={row.outcome} colorMap={OUTCOME_COLORS} />
                         <StatusBadge value={row.confirmation_status} colorMap={CONF_COLORS} />
                         <ConfirmationBadges confirmations={row.confirmations} />
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <CommToggle lead={row} unread={unreadSet.has(Number(row.id))} />
+                        </span>
                       </div>
                     </>
                   )}

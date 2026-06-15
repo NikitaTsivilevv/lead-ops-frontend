@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { format, subDays, addDays } from 'date-fns';
 import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import CommToggle from '@/components/CommToggle';
 
 const TZ = 'America/New_York';
 
@@ -78,7 +80,7 @@ function StatusBadge({ label }) {
   );
 }
 
-function AppointmentCard({ appt, isDragging, onDragStart, onDragEnd }) {
+function AppointmentCard({ appt, isDragging, onDragStart, onDragEnd, unread }) {
   const navigate = useNavigate();
   const name = appt.prospect_name || appt.name || 'New appointment';
   const address = [appt.street, appt.city, appt.state].filter(Boolean).join(', ') || appt.address || '—';
@@ -112,11 +114,14 @@ function AppointmentCard({ appt, isDragging, onDragStart, onDragEnd }) {
         {appt.show_status && <StatusBadge label={appt.show_status} />}
         {appt.sale_status && <StatusBadge label={appt.sale_status} />}
       </div>
+      <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+        <CommToggle lead={appt} unread={unread} />
+      </div>
     </div>
   );
 }
 
-function Column({ col, cards, draggingId, onDragStart, onDragEnd, onCardDrop }) {
+function Column({ col, cards, draggingId, onDragStart, onDragEnd, onCardDrop, unreadSet }) {
   const [dragOver, setDragOver] = useState(false);
   const scrollRef = useRef(null);
   const storageKey = `pipeline_col_${col.key}_scroll`;
@@ -187,6 +192,7 @@ function Column({ col, cards, draggingId, onDragStart, onDragEnd, onCardDrop }) 
               isDragging={draggingId === appt.id}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
+              unread={unreadSet?.has(Number(appt.id))}
             />
           ))
         )}
@@ -215,6 +221,14 @@ export default function Pipeline() {
   // Drag state
   const [draggingId, setDraggingId] = useState(null);
   const [overrides, setOverrides]   = useState({});
+
+  const { data: convData } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.listConversations(),
+  });
+  const unreadSet = new Set(
+    (convData?.conversations || []).filter((c) => c.unread).map((c) => Number(c.appointment_id)),
+  );
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -341,6 +355,7 @@ export default function Pipeline() {
                   onDragStart={setDraggingId}
                   onDragEnd={() => setDraggingId(null)}
                   onCardDrop={moveCard}
+                  unreadSet={unreadSet}
                 />
               ))}
             </div>

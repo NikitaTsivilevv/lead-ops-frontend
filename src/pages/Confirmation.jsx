@@ -7,6 +7,7 @@ import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { apiClient } from '@/api/apiClient';
 import { confirmationPlan } from '@/lib/confirmationPlan';
 import Searchbar from '@/components/Searchbar';
+import CommToggle from '@/components/CommToggle';
 
 // ─── derived_state badge ──────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ const CARD_TINT = {
 
 // ─── LeadCard ─────────────────────────────────────────────────────────────────
 
-function LeadCard({ lead }) {
+function LeadCard({ lead, unread }) {
   const tint = CARD_TINT[bucket(lead)] || '';
   return (
     <Link to={`/appointments/${lead.id}`} className="block">
@@ -106,6 +107,9 @@ function LeadCard({ lead }) {
             confirmations={lead.confirmations || []}
             appointmentAt={lead.appointment_at}
           />
+          <div onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+            <CommToggle lead={lead} unread={unread} />
+          </div>
         </CardContent>
       </Card>
     </Link>
@@ -131,6 +135,14 @@ export default function Confirmation() {
     queryFn: () => apiClient.listAppointments({}),
     refetchInterval: 30_000,
   });
+
+  const { data: convData } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.listConversations(),
+  });
+  const unreadSet = new Set(
+    (convData?.conversations || []).filter((c) => c.unread).map((c) => Number(c.appointment_id)),
+  );
 
   const all = data?.appointments ?? [];
   const leads = all.filter((l) => {
@@ -210,7 +222,7 @@ export default function Confirmation() {
               <div className="flex flex-wrap gap-3">
                 {grouped[colFilter].map((l) => (
                   <div key={l.id} className="w-64 shrink-0">
-                    <LeadCard lead={l} />
+                    <LeadCard lead={l} unread={unreadSet.has(Number(l.id))} />
                   </div>
                 ))}
               </div>
@@ -226,7 +238,7 @@ export default function Confirmation() {
                 </div>
                 <div className="space-y-2">
                   {grouped[key].map((l) => (
-                    <LeadCard key={l.id} lead={l} />
+                    <LeadCard key={l.id} lead={l} unread={unreadSet.has(Number(l.id))} />
                   ))}
                   {grouped[key].length === 0 && (
                     <p className="text-xs text-muted-foreground italic">Empty</p>

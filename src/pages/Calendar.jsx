@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/LeadOpsAuthContext';
 import { apiClient } from '@/api/apiClient';
 import { leadDisplayName } from '@/lib/leadName';
+import CommToggle from '@/components/CommToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -238,6 +240,14 @@ export default function Calendar() {
   const [confirmFilter, setConfirmFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+
+  const { data: convData } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.listConversations(),
+  });
+  const unreadSet = new Set(
+    (convData?.conversations || []).filter((c) => c.unread).map((c) => Number(c.appointment_id)),
+  );
 
   const clientsRef = useRef([]);
   useEffect(() => {
@@ -992,7 +1002,7 @@ export default function Calendar() {
                         </ModalRow>
                       )}
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex items-center gap-2 pt-2">
                       <Button
                         size="sm"
                         className="gap-1.5"
@@ -1006,6 +1016,7 @@ export default function Calendar() {
                       <Button size="sm" variant="outline" onClick={() => setSelectedAppt(null)}>
                         Close
                       </Button>
+                      <CommToggle lead={selectedAppt} unread={unreadSet.has(Number(selectedAppt.id))} />
                     </div>
                   </div>
                 )}
@@ -1123,6 +1134,9 @@ export default function Calendar() {
                                       }>
                                       {confirmationSummary(a.confirmations)}
                                     </Badge>
+                                    <span onClick={(e) => e.stopPropagation()}>
+                                      <CommToggle lead={a} unread={unreadSet.has(Number(a.id))} />
+                                    </span>
                                   </div>
                                 </div>
                               ))}

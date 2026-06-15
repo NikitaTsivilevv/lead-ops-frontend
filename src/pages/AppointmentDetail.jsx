@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
+import CommunicationLog from '@/components/CommunicationLog';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
 import { confirmationPlan, STAGE_HUMAN_LABEL } from '@/lib/confirmationPlan';
 import { leadDisplayName } from '@/lib/leadName';
@@ -1328,6 +1329,7 @@ export default function AppointmentDetail() {
 
         <div className="space-y-4">
           <AuditLogPanel appointmentId={appt.id} />
+          <CommunicationLog appointmentId={appt.id} />
         </div>{/* end right column */}
 
         </div>{/* end grid */}
