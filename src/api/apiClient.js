@@ -193,4 +193,13 @@ export const apiClient = {
     request(`/api/unavailability/${id}`, { method: 'PUT', body }),
   deleteUnavailability: (id) =>
     request(`/api/unavailability/${id}`, { method: 'DELETE' }),
+  // communications (Phase 3.1)
+  getCommunications: (leadId) => request(`/api/leads/${leadId}/communications`),
+  sendMessage: (leadId, body, from_number_id) =>
+    request(`/api/leads/${leadId}/messages`, { method: 'POST', body: { body, from_number_id } }),
+  markCommsRead: (leadId) => request(`/api/leads/${leadId}/communications/read`, { method: 'POST' }),
+  listConversations: () => request('/api/conversations'),
+  setPreferredNumber: (leadId, phone_number_id) =>
+    request(`/api/leads/${leadId}/preferred-number`, { method: 'PATCH', body: { phone_number_id } }),
+  listClientNumbers: (clientId) => request(`/api/clients/${clientId}/phone-numbers`),
 };
