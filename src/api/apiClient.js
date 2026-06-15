@@ -202,4 +202,7 @@ export const apiClient = {
   setPreferredNumber: (leadId, phone_number_id) =>
     request(`/api/leads/${leadId}/preferred-number`, { method: 'PATCH', body: { phone_number_id } }),
   listClientNumbers: (clientId) => request(`/api/clients/${clientId}/phone-numbers`),
+  // voice (Phase 3.1 — browser calling)
+  getVoiceToken: () => request('/api/voice/token'),
+  setPresence: (online) => request('/api/voice/presence', { method: 'POST', body: { online } }),
 };

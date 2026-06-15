@@ -5,6 +5,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import ScrollToTop from './components/ScrollToTop';
+import CallWidget from '@/components/CallWidget';
 import { AuthProvider } from '@/lib/LeadOpsAuthContext';
 import { RoleHome, RequireAuth } from '@/lib/RoleRouter';
 import AuthGate from '@/pages/AuthGate';
@@ -66,7 +67,9 @@ function App() {
       <AuthProvider>
         <Router>
           <ScrollToTop />
-          <AppRoutes />
+          <CallWidget>
+            <AppRoutes />
+          </CallWidget>
         </Router>
         <Toaster />
         <SonnerToaster position="bottom-right" richColors />
