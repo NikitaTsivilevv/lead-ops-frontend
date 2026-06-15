@@ -20,8 +20,8 @@ export default function AdminPayroll() {
   const clientList = clients.data?.clients || [];
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1200px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Payroll</h1>
 
         <div className="flex gap-0 border-b overflow-x-auto overflow-y-hidden">

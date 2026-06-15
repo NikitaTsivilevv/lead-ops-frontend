@@ -342,9 +342,9 @@ export default function Leads() {
   ];
 
   return (
-    <div className="min-h-screen bg-background py-6 px-4">
-      <div className="max-w-none mx-auto space-y-4">
-        <h1 className="text-2xl font-semibold text-foreground">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">
           {isClient ? 'My appointments' : 'Appointments'}
         </h1>
 

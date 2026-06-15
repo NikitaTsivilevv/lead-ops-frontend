@@ -23,8 +23,8 @@ export default function MyLeads() {
   const appointments = data?.appointments ?? [];
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1100px] mx-auto space-y-4">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <div className="flex items-baseline justify-between">
           <h1 className="text-2xl font-semibold">My submitted leads</h1>
           <Link to="/intake" className="text-sm underline">Submit a new lead</Link>

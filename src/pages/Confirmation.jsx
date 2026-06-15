@@ -160,8 +160,8 @@ export default function Confirmation() {
   });
 
   return (
-    <div className="min-h-screen bg-background py-6 px-4">
-      <div className="max-w-none mx-auto">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h1 className="text-2xl font-semibold">Confirmation</h1>
           <div className="w-full flex flex-row gap-4">

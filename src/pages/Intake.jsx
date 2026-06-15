@@ -206,10 +206,10 @@ export default function Intake() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-10 px-4">
-      <div className="max-w-[720px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">New Lead</h1>
+          <h1 className="text-2xl font-semibold">New Lead</h1>
           <p className="text-sm text-muted-foreground mt-1">Fill in all required fields and submit.</p>
         </div>
 

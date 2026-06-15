@@ -285,9 +285,9 @@ export default function Pipeline() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="px-4 py-4">
+      <div className="px-6 py-8">
         <div className="mb-4 space-y-3">
-          <h1 className="text-xl font-semibold tracking-tight">Pipeline</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
           <div className="flex flex-wrap items-center gap-2 bg-white rounded-md border border-gray-200 shadow-sm p-2">
             <div className="flex items-center gap-1.5">
               <label className="text-sm text-muted-foreground shrink-0">From</label>

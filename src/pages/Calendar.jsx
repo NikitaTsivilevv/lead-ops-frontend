@@ -500,8 +500,8 @@ export default function Calendar() {
   );
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1000px] mx-auto space-y-5">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         {/* Page title row */}
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">Calendar</h1>
