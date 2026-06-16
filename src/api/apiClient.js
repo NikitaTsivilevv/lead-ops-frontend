@@ -202,6 +202,11 @@ export const apiClient = {
   setPreferredNumber: (leadId, phone_number_id) =>
     request(`/api/leads/${leadId}/preferred-number`, { method: 'PATCH', body: { phone_number_id } }),
   listClientNumbers: (clientId) => request(`/api/clients/${clientId}/phone-numbers`),
+  // SMS templates (global, shared across all clients) — Phase 3.x
+  listSmsTemplates: () => request('/api/sms-templates').then((d) => d.templates || []),
+  createSmsTemplate: (body) => request('/api/sms-templates', { method: 'POST', body }),
+  updateSmsTemplate: (id, body) => request(`/api/sms-templates/${id}`, { method: 'PATCH', body }),
+  deleteSmsTemplate: (id) => request(`/api/sms-templates/${id}`, { method: 'DELETE' }),
   // voice (Phase 3.1 — browser calling)
   getVoiceToken: () => request('/api/voice/token'),
   setPresence: (online) => request('/api/voice/presence', { method: 'POST', body: { online } }),

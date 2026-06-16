@@ -34,6 +34,9 @@ function NavLinks({ user, onClick }) {
       {canUseComms(user.role) && (
         <NavLink to="/conversations" className={linkClass} onClick={onClick}>Conversations</NavLink>
       )}
+      {canUseComms(user.role) && (
+        <NavLink to="/conversations/templates" className={({ isActive }) => `${linkClass({ isActive })} ml-3 text-xs`} onClick={onClick}>SMS Templates</NavLink>
+      )}
       {['caller','confirmation'].includes(user.role) && (
         <NavLink to="/intake" className={linkClass} onClick={onClick}>New lead</NavLink>
       )}
