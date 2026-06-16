@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import CommunicationLog from '@/components/CommunicationLog';
 import ConfirmationBadges from '@/components/ConfirmationBadges';
+import CommToggle from '@/components/CommToggle';
 import { confirmationPlan, STAGE_HUMAN_LABEL } from '@/lib/confirmationPlan';
 import { leadDisplayName } from '@/lib/leadName';
 import BillingSection from '@/components/BillingSection';
@@ -575,6 +576,9 @@ export default function AppointmentDetail() {
           </button>
           <div className="flex flex-wrap items-start gap-3">
             <h1 className="text-2xl font-semibold">{leadDisplayName(appt)}</h1>
+            <div className="pt-1">
+              <CommToggle lead={appt} />
+            </div>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Badge className={qualColor}>
                 <span className="text-[10px] uppercase tracking-wide opacity-70 mr-1.5">Qualification</span>
