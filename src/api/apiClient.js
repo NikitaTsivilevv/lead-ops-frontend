@@ -31,6 +31,14 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   try { payload = await res.json(); } catch {}
 
   if (!res.ok) {
+    // An authenticated request rejected with 401 means the JWT is missing/expired/invalid
+    // (24h TTL, no refresh — D-5). Clear the dead token and bounce to /login so the user
+    // re-authenticates, instead of surfacing a raw "invalid_token" inline in the page.
+    // Skip the auth endpoints themselves (a wrong-password login legitimately returns 401).
+    if (res.status === 401 && token && !path.startsWith('/api/auth/')) {
+      setToken(null);
+      if (typeof window !== 'undefined') window.location.assign('/login?expired=1');
+    }
     const err = new Error(payload?.message || payload?.error || `HTTP ${res.status}`);
     err.status = res.status;
     err.payload = payload;
@@ -75,6 +83,9 @@ export const apiClient = {
   setAdminPayout: (id, body) => request(`/api/appointments/${id}/admin`, { method: 'PATCH', body }),
   setRecordingVisibility: (id, allowed) => request(`/api/appointments/${id}/recording-visibility`, { method: 'PATCH', body: { allowed } }),
   getActionNeeded: () => request('/api/appointments/action-needed').then((d) => d.appointments || []),
+  getNotifications: () => request('/api/notifications'),
+  markNotificationRead: (id) => request(`/api/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/api/notifications/read', { method: 'POST' }),
   listMyLeads: () => request('/api/leads/my'),
   updateMyLead: (id, body) => request(`/api/leads/my/${id}`, { method: 'PATCH', body }),
   getAppointmentHistory: (appointmentId) => request(`/api/appointments/${appointmentId}/history`),
