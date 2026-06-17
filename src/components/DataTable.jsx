@@ -39,6 +39,7 @@ export default function DataTable({
   emptyMessage = 'No items.',
   defaultPageSize = 25,
   columnToggleId,
+  rowId,
 }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(defaultPageSize);
@@ -602,6 +603,7 @@ export default function DataTable({
               pagedRows.map((row, i) => (
                 <TableRow
                   key={row.id ?? i}
+                  id={rowId ? rowId(row) : undefined}
                   className={cn(
                     i % 2 === 1 && 'bg-blue-50',
                     onRowClick && 'cursor-pointer hover:bg-muted/50 transition-colors',
@@ -638,6 +640,7 @@ export default function DataTable({
           pagedRows.map((row, i) => (
             <div
               key={row.id ?? i}
+              id={rowId ? rowId(row) : undefined}
               className={`rounded-lg border bg-card p-4 space-y-2${onRowClick ? ' cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >

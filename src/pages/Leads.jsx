@@ -437,6 +437,7 @@ export default function Leads() {
                     ].some((v) => v && String(v).toLowerCase().includes(q));
                   })}
                   onRowClick={(row) => navigate(`/appointments/${row.id}`)}
+                  rowId={(row) => `lead-row-${row.id}`}
                   emptyMessage="No appointments yet."
                   mobileCard={(row) => (
                     <>
