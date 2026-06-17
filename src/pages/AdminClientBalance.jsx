@@ -72,8 +72,8 @@ export default function AdminClientBalance() {
   const moneyOwes = b && b.money_balance_cents < 0;
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-[1000px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-8 px-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Client Balance</h1>
 
         <Card>

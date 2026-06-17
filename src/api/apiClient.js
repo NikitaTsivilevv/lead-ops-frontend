@@ -31,6 +31,14 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   try { payload = await res.json(); } catch {}
 
   if (!res.ok) {
+    // An authenticated request rejected with 401 means the JWT is missing/expired/invalid
+    // (24h TTL, no refresh — D-5). Clear the dead token and bounce to /login so the user
+    // re-authenticates, instead of surfacing a raw "invalid_token" inline in the page.
+    // Skip the auth endpoints themselves (a wrong-password login legitimately returns 401).
+    if (res.status === 401 && token && !path.startsWith('/api/auth/')) {
+      setToken(null);
+      if (typeof window !== 'undefined') window.location.assign('/login?expired=1');
+    }
     const err = new Error(payload?.message || payload?.error || `HTTP ${res.status}`);
     err.status = res.status;
     err.payload = payload;
@@ -205,4 +213,12 @@ export const apiClient = {
   setPreferredNumber: (leadId, phone_number_id) =>
     request(`/api/leads/${leadId}/preferred-number`, { method: 'PATCH', body: { phone_number_id } }),
   listClientNumbers: (clientId) => request(`/api/clients/${clientId}/phone-numbers`),
+  // SMS templates (global, shared across all clients) — Phase 3.x
+  listSmsTemplates: () => request('/api/sms-templates').then((d) => d.templates || []),
+  createSmsTemplate: (body) => request('/api/sms-templates', { method: 'POST', body }),
+  updateSmsTemplate: (id, body) => request(`/api/sms-templates/${id}`, { method: 'PATCH', body }),
+  deleteSmsTemplate: (id) => request(`/api/sms-templates/${id}`, { method: 'DELETE' }),
+  // voice (Phase 3.1 — browser calling)
+  getVoiceToken: () => request('/api/voice/token'),
+  setPresence: (online) => request('/api/voice/presence', { method: 'POST', body: { online } }),
 };

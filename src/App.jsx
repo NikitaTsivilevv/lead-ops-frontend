@@ -5,6 +5,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import ScrollToTop from './components/ScrollToTop';
+import CallWidget from '@/components/CallWidget';
 import { AuthProvider } from '@/lib/LeadOpsAuthContext';
 import { RoleHome, RequireAuth } from '@/lib/RoleRouter';
 import AuthGate from '@/pages/AuthGate';
@@ -26,6 +27,7 @@ import AdminExpenses from '@/pages/AdminExpenses';
 import AdminClientBalance from '@/pages/AdminClientBalance';
 import AdminPnl from '@/pages/AdminPnl';
 import Conversations from '@/pages/Conversations';
+import SmsTemplates from '@/pages/SmsTemplates';
 import AcceptInvite from '@/pages/AcceptInvite';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
@@ -42,6 +44,7 @@ const AppRoutes = () => (
     <Route path="/leads" element={<RequireAuth allow={['admin','operations','confirmation','client','qa','call_center_admin']}><Leads /></RequireAuth>} />
     <Route path="/confirmation" element={<RequireAuth allow={['admin','operations','confirmation','call_center_admin']}><Confirmation /></RequireAuth>} />
     <Route path="/conversations" element={<RequireAuth allow={['admin','operations','confirmation','call_center_admin','client']}><Conversations /></RequireAuth>} />
+    <Route path="/conversations/templates" element={<RequireAuth allow={['admin','operations','confirmation','call_center_admin','client']}><SmsTemplates /></RequireAuth>} />
     <Route path="/appointments/:id" element={<RequireAuth allow={['admin','operations','confirmation','client','qa','call_center_admin']}><AppointmentDetail /></RequireAuth>} />
     <Route path="/pipeline" element={<RequireAuth allow={['admin','operations','confirmation','client','call_center_admin']}><Pipeline /></RequireAuth>} />
     <Route path="/calendar" element={<RequireAuth allow={['admin','operations','confirmation','client','call_center_admin']}><Calendar /></RequireAuth>} />
@@ -66,7 +69,9 @@ function App() {
       <AuthProvider>
         <Router>
           <ScrollToTop />
-          <AppRoutes />
+          <CallWidget>
+            <AppRoutes />
+          </CallWidget>
         </Router>
         <Toaster />
         <SonnerToaster position="bottom-right" richColors />
